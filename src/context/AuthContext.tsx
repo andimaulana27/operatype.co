@@ -3,10 +3,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-// PERBAIKAN: Mengimpor tipe data dari supabase
-import { Session, User, AuthChangeEvent } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 
-// Tipe data baru untuk profil pengguna
 type Profile = {
   full_name: string;
   role: string;
@@ -16,6 +14,7 @@ type AuthContextType = {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
+  loading: boolean;
   logout: () => Promise<void>;
 };
 
@@ -47,8 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     getSessionAndProfile();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      // PERBAIKAN: Menambahkan tipe data eksplisit
-      async (event: AuthChangeEvent, session: Session | null) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -62,6 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setProfile(null);
         }
+        setLoading(false);
       }
     );
 
@@ -72,10 +71,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    // Menggunakan window.location untuk memastikan reload penuh
     window.location.href = '/login'; 
   };
 
-  const value = { session, user, profile, logout };
+  const value = { session, user, profile, loading, logout };
 
   return (
     <AuthContext.Provider value={value}>

@@ -12,26 +12,26 @@ export default async function AdminLayout({
   const supabase = createServerComponentClient({ cookies });
   const { data: { session } } = await supabase.auth.getSession();
 
-  // Jika tidak ada sesi/login, redirect ke halaman login
   if (!session) {
     redirect('/login');
   }
 
-  // Cek role pengguna dari tabel profiles
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', session.user.id)
     .single();
 
-  // Jika role bukan 'admin', redirect ke halaman utama
   if (profile?.role !== 'admin') {
     redirect('/');
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    // PERBAIKAN: Layout diubah untuk mengakomodasi garis pemisah
+    <div className="flex h-screen bg-brand-gray-2">
       <Sidebar />
+      {/* Garis Pemisah Vertikal */}
+      <div className="w-px bg-brand-black"></div>
       <main className="flex-1 p-8 overflow-y-auto">
         {children}
       </main>

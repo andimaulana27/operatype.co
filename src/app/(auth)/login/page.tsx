@@ -64,6 +64,7 @@ export default function LoginPage() {
     setIsLoading(false);
   };
 
+  // PERBAIKAN: Logika redirect yang lebih kuat dan eksplisit
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -90,6 +91,7 @@ export default function LoginPage() {
       if (profileError) {
         setError("Login successful, but could not retrieve user profile.");
         await supabase.auth.signOut();
+        setIsLoading(false);
       } else if (profile?.role === 'admin') {
         router.push('/admin/dashboard');
       } else {
