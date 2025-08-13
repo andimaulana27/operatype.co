@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -8,9 +8,11 @@ import { Database } from '@/lib/database.types';
 import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// Tipe data dari file database.types.ts
 type FontRow = Database['public']['Tables']['fonts']['Row'];
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
+type DiscountInsert = Database['public']['Tables']['discounts']['Insert'];
 
 type FontWithDetails = FontRow & {
   categories: Pick<Category, 'name'> | null;
@@ -20,16 +22,10 @@ type FontWithDetails = FontRow & {
 
 const ITEMS_PER_PAGE = 10;
 
-interface DeleteModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  fontsToDelete: FontWithDetails[];
-  isLoading: boolean;
-}
-
-const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, fontsToDelete, isLoading }: DeleteModalProps) => {
+// Komponen Modal Konfirmasi Hapus
+const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, fontsToDelete, isLoading }: { isOpen: boolean, onClose: () => void, onConfirm: () => void, fontsToDelete: FontWithDetails[], isLoading: boolean }) => {
     if (!isOpen) return null;
+
     const fontCount = fontsToDelete.length;
     const fontName = fontsToDelete.length === 1 ? `"${fontsToDelete[0].name}"` : `${fontCount} fonts`;
 
@@ -74,6 +70,76 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, fontsToDelete, is
     );
 };
 
+// BARU: Komponen Modal untuk Membuat Diskon Baru
+const CreateDiscountModal = ({ isOpen, onClose, onSave, isLoading }: { isOpen: boolean, onClose: () => void, onSave: (discountData: DiscountInsert) => void, isLoading: boolean }) => {
+    const [name, setName] = useState('');
+    const [percentage, setPercentage] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+
+    const handleSubmit = () => {
+        if (!name || !percentage || !startDate || !endDate) {
+            toast.error('Please fill all fields.');
+            return;
+        }
+        const percValue = parseInt(percentage);
+        if (percValue <= 0 || percValue > 100) {
+            toast.error('Percentage must be between 1 and 100.');
+            return;
+        }
+        if (new Date(startDate) >= new Date(endDate)) {
+            toast.error('End date must be after the start date.');
+            return;
+        }
+        
+        onSave({
+            name,
+            percentage: percValue,
+            start_date: new Date(startDate).toISOString(),
+            end_date: new Date(endDate).toISOString(),
+            is_active: true,
+        });
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+                <h3 className="text-xl leading-6 font-bold text-gray-900 mb-4">Create New Discount</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Discount Name</label>
+                        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder='e.g., Summer Sale 2025' className="mt-1 block w-full p-2 border rounded-md" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Percentage (%)</label>
+                        <input type="number" value={percentage} onChange={(e) => setPercentage(e.target.value)} placeholder='e.g., 20' className="mt-1 block w-full p-2 border rounded-md" min="1" max="100"/>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 block w-full p-2 border rounded-md" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">End Date</label>
+                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 block w-full p-2 border rounded-md" />
+                        </div>
+                    </div>
+                </div>
+                <div className="mt-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" onClick={handleSubmit} disabled={isLoading} className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50">
+                        {isLoading ? 'Saving...' : 'Save Discount'}
+                    </button>
+                    <button type="button" onClick={onClose} disabled={isLoading} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const StatusBadge = ({ status }: { status: string | null }) => {
   const statusClasses = status === 'Published'
     ? 'bg-green-100 text-green-800'
@@ -99,6 +165,9 @@ export default function ManageFontsPage() {
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [fontsToDelete, setFontsToDelete] = useState<FontWithDetails[]>([]);
+
+  // BARU: State untuk modal diskon
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -163,7 +232,6 @@ export default function ManageFontsPage() {
 
         const getPathFromUrl = (url: string, bucket: string) => {
             try {
-                // Mencoba mengambil path setelah nama bucket. Lebih aman dari split biasa.
                 const path = new URL(url).pathname.split(`/${bucket}/`)[1];
                 return path ? decodeURIComponent(path) : '';
             } catch (e) {
@@ -178,20 +246,18 @@ export default function ManageFontsPage() {
             if (font.display_font_italic_url) pathsToDelete['display-fonts'].push(getPathFromUrl(font.display_font_italic_url, 'display-fonts'));
             if (font.downloadable_file_url) pathsToDelete['downloadable-files'].push(font.downloadable_file_url);
 
-            // ================== PERBAIKAN DI SINI ==================
             if (Array.isArray(font.gallery_image_urls)) {
                 const galleryPaths = font.gallery_image_urls
-                    .map((url: any) => { // Terima 'any' untuk diperiksa tipenya
+                    .map((url: any) => {
                         if (typeof url === 'string') {
                             return getPathFromUrl(url, 'font_images');
                         }
                         return null;
                     })
-                    .filter((path): path is string => !!path); // Hapus nilai null dan pastikan tipenya string
+                    .filter((path): path is string => !!path); 
                 
                 pathsToDelete.font_images.push(...galleryPaths);
             }
-            // =======================================================
         });
 
         const storagePromises = Object.entries(pathsToDelete)
@@ -247,6 +313,20 @@ export default function ManageFontsPage() {
     });
   };
 
+  // BARU: Fungsi untuk menyimpan diskon baru
+  const handleCreateDiscount = async (discountData: DiscountInsert) => {
+    setIsLoading(true);
+    const { error } = await supabase.from('discounts').insert([discountData]);
+
+    if (error) {
+        toast.error(`Failed to create discount: ${error.message}`);
+    } else {
+        toast.success('Discount created successfully!');
+        setIsDiscountModalOpen(false);
+    }
+    setIsLoading(false);
+  };
+
   return (
     <div>
         <DeleteConfirmationModal 
@@ -254,6 +334,13 @@ export default function ManageFontsPage() {
             onClose={() => setIsDeleteModalOpen(false)}
             onConfirm={confirmDelete}
             fontsToDelete={fontsToDelete}
+            isLoading={isLoading}
+        />
+        
+        <CreateDiscountModal
+            isOpen={isDiscountModalOpen}
+            onClose={() => setIsDiscountModalOpen(false)}
+            onSave={handleCreateDiscount}
             isLoading={isLoading}
         />
 
@@ -264,7 +351,7 @@ export default function ManageFontsPage() {
           <p className="text-gray-500 mt-1">Add, edit, and manage all your font products.</p>
         </div>
         <div className="flex gap-2">
-           <button className="bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+           <button onClick={() => setIsDiscountModalOpen(true)} className="bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
             Create Discount
           </button>
           <Link href="/admin/fonts/new">
