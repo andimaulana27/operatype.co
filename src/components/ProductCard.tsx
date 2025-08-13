@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Tag } from 'lucide-react';
 
-// DIPERBARUI: Menambahkan tipe data untuk diskon
+// DIPERBARUI: Tipe props dibuat lebih fleksibel untuk menerima data asli dari database
 type DiscountInfo = {
   discounts: {
     name: string | null;
@@ -14,29 +14,25 @@ type DiscountInfo = {
 type ProductCardProps = {
   font: {
     id: string;
-    slug: string;
-    name: string;
-    main_image_url: string;
-    description: string;
-    price_desktop: number;
-    is_bestseller?: boolean;
-    // Tambahkan relasi font_discounts ke tipe
+    slug: string | null;
+    name: string | null;
+    main_image_url: string | null; // Diizinkan untuk null
+    description: string | null;
+    price_desktop: number | null;
+    is_bestseller?: boolean | null;
     font_discounts: DiscountInfo[];
   };
 };
 
 const ProductCard = ({ font }: ProductCardProps) => {
-  // BARU: Logika untuk memotong deskripsi menjadi satu kalimat
-  const truncateDescription = (text: string) => {
-    if (!text) return '';
-    // Ambil teks sampai titik pertama, lalu tambahkan titiknya kembali
+  const truncateDescription = (text: string | null) => {
+    if (!text) return 'No description available.';
     const firstSentence = text.split('.')[0];
     return `${firstSentence}.`;
   };
 
-  // BARU: Logika untuk menghitung harga diskon
   const activeDiscount = font.font_discounts?.[0]?.discounts;
-  const originalPrice = font.price_desktop;
+  const originalPrice = font.price_desktop || 0;
   let displayPrice = originalPrice;
 
   if (activeDiscount && activeDiscount.percentage) {
@@ -45,11 +41,12 @@ const ProductCard = ({ font }: ProductCardProps) => {
 
   return (
     <div className="group">
-      <div className="relative w-full aspect-[1.4] bg-brand-gray-2 rounded-lg overflow-hidden mb-4">
-        <Link href={`/fonts/${font.slug}`}>
+      <div className="relative w-full aspect-[1.4] bg-gray-100 rounded-lg overflow-hidden mb-4">
+        <Link href={`/fonts/${font.slug || ''}`}>
+          {/* DIPERBARUI: Menambahkan gambar placeholder jika main_image_url null */}
           <Image
-            src={font.main_image_url}
-            alt={`Preview of ${font.name} font`}
+            src={font.main_image_url || '/placeholder.png'} 
+            alt={`Preview of ${font.name || 'font'} font`}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -60,24 +57,22 @@ const ProductCard = ({ font }: ProductCardProps) => {
             Bestseller
           </span>
         )}
-        {/* BARU: Menampilkan badge diskon */}
         {activeDiscount && (
            <span className="absolute top-3 left-3 bg-green-600 text-white text-xs font-medium px-2 py-1 rounded-full z-10 flex items-center gap-1">
             <Tag size={12}/> {activeDiscount.percentage}% OFF
           </span>
         )}
       </div>
-      <h3 className="text-xl font-medium text-brand-black">{font.name}</h3>
+      <h3 className="text-xl font-medium text-brand-black">{font.name || 'Untitled Font'}</h3>
       <p className="text-brand-gray-1 font-light mt-1 h-12 overflow-hidden">
         {truncateDescription(font.description)}
       </p>
       <div className="flex justify-between items-center mt-3">
-        <Link href={`/fonts/${font.slug}`}>
+        <Link href={`/fonts/${font.slug || ''}`}>
           <span className="bg-brand-orange text-white text-sm font-medium py-2 px-5 rounded-full hover:bg-brand-orange-hover transition-colors">
             View Detail
           </span>
         </Link>
-        {/* DIPERBARUI: Tampilan harga dengan logika diskon */}
         <div className="text-lg font-medium text-brand-black text-right">
           {activeDiscount ? (
             <div>

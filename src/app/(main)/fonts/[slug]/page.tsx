@@ -1,7 +1,7 @@
 // src/app/(main)/fonts/[slug]/page.tsx
-import { supabase } from '@/lib/supabaseClient';
-import { notFound } from 'next/navigation';
-import Image from 'next/image';
+import { supabase } from "@/lib/supabaseClient";
+import { notFound } from "next/navigation";
+import Image from "next/image";
 import Link from 'next/link';
 import FontImageGallery from '@/components/FontImageGallery';
 import TypeTester from '@/components/TypeTester';
@@ -10,43 +10,39 @@ import ProductCard from '@/components/ProductCard';
 import LicenseSelector from '@/components/LicenseSelector';
 import SectionHeader from '@/components/SectionHeader';
 import { FileIcon, ArchiveIcon } from '@/components/icons';
-import { Database } from '@/lib/database.types';
+import { Database } from "@/lib/database.types";
+import DynamicFontLoader from "@/components/DynamicFontLoader";
 
-// Tipe data yang disesuaikan
+// Tipe data disesuaikan
 type Discount = Database['public']['Tables']['discounts']['Row'];
-type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
+type FontRow = Database['public']['Tables']['fonts']['Row'];
+type FontDetail = FontRow & {
   partners: { name: string } | null;
   categories: { name: string } | null;
   font_discounts: { discounts: Discount | null }[];
 };
+// DIPERBARUI: Tipe untuk font terkait sekarang langsung dari tipe FontDetail, karena querynya sama
+type RelatedFont = FontDetail;
 
-// Query untuk mengambil data lengkap
-async function getFontBySlug(slug: string): Promise<FontDetail | null> {
+async function getFontBySlug(slug: string): Promise<FontDetail> {
   const { data, error } = await supabase
     .from('fonts')
-    .select(`
-      *,
-      partners (name),
-      categories (name),
-      font_discounts (
-        discounts (*)
-      )
-    `)
+    .select(`*, partners(name), categories(name), font_discounts(discounts(*))`)
     .eq('slug', slug)
     .single();
 
-  if (error) {
-    console.error('Error fetching font by slug:', error.message);
-    return null;
+  if (error || !data) {
+    notFound();
   }
   
   return data as FontDetail;
 }
 
-async function getRelatedFonts(currentId: string) {
+// DIPERBARUI: Fungsi ini sekarang memiliki tipe return yang benar dan query yang lengkap
+async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
     const { data, error } = await supabase
     .from('fonts')
-    .select('*, font_discounts(discounts(*))')
+    .select('*, partners(name), categories(name), font_discounts(discounts(*))')
     .neq('id', currentId)
     .limit(4);
 
@@ -54,38 +50,30 @@ async function getRelatedFonts(currentId: string) {
     console.error('Error fetching related fonts:', error);
     return [];
   }
-  return data;
+  return data as RelatedFont[];
 }
 
 export default async function FontDetailPage({ params }: { params: { slug: string } }) {
   const font = await getFontBySlug(params.slug);
-  
-  if (!font) {
-    notFound();
-  }
-
   const relatedFonts = await getRelatedFonts(font.id);
   const dynamicFontFamily = `dynamic-${font.name.replace(/\s+/g, '-')}`;
 
-  // DIPERBARUI: Logika untuk menentukan diskon aktif yang lebih aman
   const now = new Date();
   const activeDiscount = font.font_discounts
       .map(fd => fd.discounts)
       .find(d => 
           d && d.is_active && 
-          d.start_date && d.end_date && // Memastikan tanggal tidak null
+          d.start_date && d.end_date &&
           new Date(d.start_date) <= now && 
           new Date(d.end_date) >= now
       );
 
   return (
     <>
-      <style jsx global>{`
-        @font-face {
-          font-family: '${dynamicFontFamily}';
-          src: url('${font.display_font_regular_url}');
-        }
-      `}</style>
+      <DynamicFontLoader 
+        fontFamily={dynamicFontFamily} 
+        fontUrl={font.display_font_regular_url} 
+      />
 
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
@@ -93,7 +81,6 @@ export default async function FontDetailPage({ params }: { params: { slug: strin
           <div className="w-full lg:col-span-2">
             <FontImageGallery 
               mainImage={font.main_image_url}
-              // DIPERBARUI: Menambahkan type assertion 'as string[]'
               galleryImages={font.gallery_image_urls as string[] || []}
             />
             <TypeTester 
@@ -160,22 +147,19 @@ export default async function FontDetailPage({ params }: { params: { slug: strin
                <div>
                 <SectionHeader title="Product Information" />
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                  {/* DIPERBARUI: Menambahkan type assertion 'as string[]' */}
                   {(font.product_information as string[] || []).map((info: string) => <li key={info}>{info}</li>)}
                 </ul>
               </div>
               <div>
                 <SectionHeader title="Styles" />
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                  {/* DIPERBARUI: Menambahkan type assertion 'as string[]' */}
                   {(font.styles as string[] || []).map((style: string) => <li key={style}>{style}</li>)}
                 </ul>
               </div>
               <div>
                 <SectionHeader title="Tags" />
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                  {/* DIPERBARUI: Menggunakan 'tags' dan type assertion 'as string[]' */}
-                  {(font.tags as string[] || []).map((tags: string) => <li key={tags}>{tags}</li>)}
+                  {(font.tags as string[] || []).map((tag: string) => <li key={tag}>{tag}</li>)}
                 </ul>
               </div>
             </div>
@@ -187,8 +171,8 @@ export default async function FontDetailPage({ params }: { params: { slug: strin
             <SectionHeader title="You May Also Like" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mt-8">
-            {relatedFonts.map(relatedFont => (
-              <ProductCard key={relatedFont.id} font={relatedFont as any} />
+            {relatedFonts.map((relatedFont) => (
+              <ProductCard key={relatedFont.id} font={relatedFont} />
             ))}
           </div>
         </section>
