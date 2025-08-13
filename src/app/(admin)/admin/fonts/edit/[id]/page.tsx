@@ -50,16 +50,16 @@ const TagInput = ({ label, tags, setTags }: { label: string, tags: string[], set
     }
   };
   const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
+    setTags(tags.filter(tags => tags !== tagToRemove));
   };
   return (
     <div>
        <label className="font-medium">{label}</label>
       <div className="flex flex-wrap gap-2 mb-2 mt-1 border rounded-md p-2">
-        {tags.map(tag => (
-          <span key={tag} className="bg-gray-200 text-gray-700 text-sm font-medium px-2 py-1 rounded-full flex items-center">
-            {tag}
-            <button type="button" onClick={() => removeTag(tag)} className="ml-2 text-red-500 hover:text-red-700">&times;</button>
+        {tags.map(tags => (
+          <span key={tags} className="bg-gray-200 text-gray-700 text-sm font-medium px-2 py-1 rounded-full flex items-center">
+            {tags}
+            <button type="button" onClick={() => removeTag(tags)} className="ml-2 text-red-500 hover:text-red-700">&times;</button>
           </span>
         ))}
       </div>
