@@ -23,7 +23,7 @@ type FontDetail = {
   display_font_regular_url: string;
   display_font_italic_url?: string | null;
   glyph_string: string;
-  tag: string[] | null;
+  tags: string[] | null;
   is_bestseller: boolean;
   partners: { name: string } | null;
   file_types: string;
@@ -155,7 +155,7 @@ export default async function FontDetailPage({ params }: { params: { slug: strin
             <div>
               <SectionHeader title="Tags" />
               <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                {(font.tag || []).map((tag: string) => <li key={tag}>{tag}</li>)}
+                {(font.tags || []).map((tags: string) => <li key={tags}>{tags}</li>)}
               </ul>
             </div>
           </div>

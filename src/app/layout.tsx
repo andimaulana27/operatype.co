@@ -3,7 +3,8 @@ import type { Metadata } from 'next'
 import { Poppins } from 'next/font/google'
 import './globals.css'
 import { CartProvider } from '@/context/CartContext';
-import { AuthProvider } from '@/context/AuthContext'; // <-- 1. IMPORT AUTH PROVIDER
+import { AuthProvider } from '@/context/AuthContext';
+import { Toaster } from 'react-hot-toast'; // BARU: 1. Import Toaster
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -23,7 +24,25 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={poppins.className}>
-        {/* 2. BUNGKUS SEMUANYA DENGAN AUTH PROVIDER */}
+        {/* BARU: 2. Tambahkan komponen Toaster di sini */}
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 3000,
+            success: {
+              style: {
+                background: '#28a745',
+                color: 'white',
+              },
+            },
+            error: {
+              style: {
+                background: '#dc3545',
+                color: 'white',
+              },
+            },
+          }}
+        />
         <AuthProvider>
           <CartProvider>
             {children}
