@@ -13,7 +13,7 @@ import { FileIcon, ArchiveIcon } from '@/components/icons';
 import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
 
-// Tipe data disesuaikan
+// Tipe data untuk konsistensi di seluruh file
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type FontRow = Database['public']['Tables']['fonts']['Row'];
 type FontDetail = FontRow & {
@@ -21,9 +21,8 @@ type FontDetail = FontRow & {
   categories: { name: string } | null;
   font_discounts: { discounts: Discount | null }[];
 };
-// DIPERBARUI: Tipe untuk font terkait sekarang langsung dari tipe FontDetail, karena querynya sama
-type RelatedFont = FontDetail;
 
+// Fungsi untuk mengambil data font berdasarkan slug
 async function getFontBySlug(slug: string): Promise<FontDetail> {
   const { data, error } = await supabase
     .from('fonts')
@@ -34,12 +33,11 @@ async function getFontBySlug(slug: string): Promise<FontDetail> {
   if (error || !data) {
     notFound();
   }
-  
   return data as FontDetail;
 }
 
-// DIPERBARUI: Fungsi ini sekarang memiliki tipe return yang benar dan query yang lengkap
-async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
+// Fungsi untuk mengambil font terkait
+async function getRelatedFonts(currentId: string): Promise<FontDetail[]> {
     const { data, error } = await supabase
     .from('fonts')
     .select('*, partners(name), categories(name), font_discounts(discounts(*))')
@@ -50,9 +48,10 @@ async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
     console.error('Error fetching related fonts:', error);
     return [];
   }
-  return data as RelatedFont[];
+  return data as FontDetail[];
 }
 
+// DIPERBARUI: Tipe props didefinisikan langsung di sini untuk memastikan kecocokan
 export default async function FontDetailPage({ params }: { params: { slug: string } }) {
   const font = await getFontBySlug(params.slug);
   const relatedFonts = await getRelatedFonts(font.id);
