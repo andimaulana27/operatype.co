@@ -1,7 +1,6 @@
 // src/app/(main)/fonts/[slug]/page.tsx
 import { supabase } from "@/lib/supabaseClient";
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import Link from 'next/link';
 import FontImageGallery from '@/components/FontImageGallery';
 import TypeTester from '@/components/TypeTester';
@@ -13,7 +12,17 @@ import { FileIcon, ArchiveIcon, FolderIcon } from '@/components/icons';
 import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
 
-// Tipe data untuk konsistensi
+// ================== PERBAIKAN DI SINI (1/2) ==================
+// Mendefinisikan tipe props yang benar untuk halaman Next.js
+type PageProps = {
+  params: {
+    slug: string;
+  };
+  searchParams?: { [key: string]: string | string[] | undefined };
+};
+// ==============================================================
+
+// Tipe data untuk konsistensi (TIDAK ADA PERUBAHAN)
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
   partners: { name: string } | null;
@@ -22,7 +31,7 @@ type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
 };
 type RelatedFont = FontDetail;
 
-// Fungsi untuk mengambil data font berdasarkan slug
+// Fungsi untuk mengambil data font berdasarkan slug (TIDAK ADA PERUBAHAN)
 async function getFontBySlug(slug: string): Promise<FontDetail> {
   const { data, error } = await supabase
     .from('fonts')
@@ -36,7 +45,7 @@ async function getFontBySlug(slug: string): Promise<FontDetail> {
   return data as FontDetail;
 }
 
-// Fungsi untuk mengambil font terkait
+// Fungsi untuk mengambil font terkait (TIDAK ADA PERUBAHAN)
 async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
     const { data, error } = await supabase
     .from('fonts')
@@ -51,7 +60,10 @@ async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
   return data as RelatedFont[];
 }
 
-export default async function FontDetailPage({ params }: { params: { slug: string } }) {
+// ================== PERBAIKAN DI SINI (2/2) ==================
+// Menggunakan tipe 'PageProps' yang sudah didefinisikan untuk props komponen
+export default async function FontDetailPage({ params }: PageProps) {
+// ==============================================================
   const font = await getFontBySlug(params.slug);
   const relatedFonts = await getRelatedFonts(font.id);
   
@@ -96,14 +108,12 @@ export default async function FontDetailPage({ params }: { params: { slug: strin
           <div className="w-full">
             <h1 className="text-5xl font-medium text-brand-black">{font.name}</h1>
             
-            {/* ================== PERUBAHAN DI SINI ================== */}
             <div className="mt-2 text-sm">
                 <span className="text-gray-600">by </span>
                 <span className="font-semibold text-brand-orange">
                     {font.partners?.name || 'Operatype.co'}
                 </span>
             </div>
-            {/* ======================================================= */}
 
             <div className="border-b border-brand-black my-6"></div>
             
