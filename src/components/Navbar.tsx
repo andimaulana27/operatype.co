@@ -44,7 +44,8 @@ const navLinks = [
 
 const Navbar = () => {
   const pathname = usePathname();
-  const { cartItemCount } = useCart();
+  // DIPERBARUI: Menggunakan 'itemCount' agar sesuai dengan CartContext
+  const { itemCount } = useCart();
   const { session } = useAuth();
 
   return (
@@ -90,16 +91,16 @@ const Navbar = () => {
           <div className="flex items-center space-x-5">
             <Link href="/cart" aria-label="Shopping Cart" className="relative text-brand-black hover:text-brand-orange transition-colors">
               <CartIcon className="w-[26px] h-[26px]" />
-              {cartItemCount > 0 && (
+              {/* DIPERBARUI: Menggunakan 'itemCount' */}
+              {itemCount > 0 && (
                 <span className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 bg-red-600 text-white text-xs rounded-full">
-                  {cartItemCount}
+                  {itemCount}
                 </span>
               )}
             </Link>
             
             <div className="h-6 w-px bg-brand-orange"></div>
 
-            {/* PERBAIKAN: Warna ikon dinamis berdasarkan status login */}
             <Link 
               href={session ? "/account" : "/login"} 
               aria-label="Login or personal account" 

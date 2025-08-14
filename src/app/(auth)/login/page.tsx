@@ -1,24 +1,12 @@
 // src/app/(auth)/login/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { EyeIcon, EyeSlashIcon } from '@/components/icons';
-
-const Notification = ({ message, onClose }: { message: string, onClose: () => void }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 5000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  return (
-    <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-brand-orange text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-down">
-      {message}
-    </div>
-  );
-};
+import toast from 'react-hot-toast'; // BARU: Menggunakan react-hot-toast
 
 export default function LoginPage() {
   const [isRegisterView, setIsRegisterView] = useState(false);
@@ -26,81 +14,109 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
-  const [notification, setNotification] = useState<string | null>(null);
   const router = useRouter();
+
+  // BARU: Fungsi untuk mereset semua state form
+  const resetFormState = () => {
+    // setEmail(''); // Biarkan email terisi untuk UX yang lebih baik
+    setPassword('');
+    setFullName('');
+    setConfirmPassword('');
+    setIsLoading(false);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setIsAgreed(false);
+  };
+
+  const handleToggleView = () => {
+    resetFormState();
+    setIsRegisterView(!isRegisterView);
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     setIsLoading(true);
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      toast.error("Passwords do not match.");
       setIsLoading(false);
       return;
     }
 
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+    // Menggunakan toast.promise untuk UX yang lebih baik
+    const registerPromise = supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+            data: {
+                full_name: fullName,
+            }
+        }
+    }).then(async ({ data: signUpData, error: signUpError }) => {
+        if (signUpError) throw signUpError;
+        if (!signUpData.user) throw new Error("Registration failed, please try again.");
+        
+        // Menambahkan profile data
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ full_name: fullName, role: 'user' }) // Menggunakan update karena trigger sudah membuat baris
+            .eq('id', signUpData.user.id);
 
-    if (signUpError) {
-      setError(signUpError.message);
-    } else if (signUpData.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({ id: signUpData.user.id, full_name: fullName, role: 'user' });
+        if (profileError) throw profileError;
+    });
 
-      if (profileError) {
-        setError(profileError.message);
-      } else {
-        setNotification('Registration successful! Please check your email to verify your account.');
-        setIsRegisterView(false);
-      }
-    }
+    toast.promise(registerPromise, {
+        loading: 'Registering...',
+        success: () => {
+            handleToggleView(); // Pindah ke view login setelah berhasil
+            return 'Registration successful! Please check your email for verification.';
+        },
+        error: (err) => err.message || 'An unexpected error occurred.',
+    });
+
     setIsLoading(false);
   };
 
-  // PERBAIKAN: Logika redirect yang lebih kuat dan eksplisit
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     setIsLoading(true);
 
-    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+    const loginPromise = supabase.auth.signInWithPassword({
       email,
       password,
+    }).then(async ({ data: loginData, error: loginError }) => {
+        if (loginError) throw loginError;
+        if (!loginData.user) throw new Error("Login failed, please check your credentials.");
+
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', loginData.user.id)
+            .single();
+        
+        if (profileError) throw new Error("Login successful, but could not retrieve user profile.");
+        
+        return profile?.role; // Kembalikan role untuk di-handle di .then()
     });
 
-    if (loginError) {
-      setError(loginError.message);
-      setIsLoading(false);
-      return;
-    }
+    toast.promise(loginPromise, {
+        loading: 'Logging in...',
+        success: (role) => {
+            if (role === 'admin') {
+                router.push('/admin/dashboard');
+            } else {
+                router.push('/');
+            }
+            return 'Login successful!';
+        },
+        error: (err) => err.message || "An unknown error occurred.",
+    });
 
-    if (loginData.user) {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', loginData.user.id)
-        .single();
-
-      if (profileError) {
-        setError("Login successful, but could not retrieve user profile.");
-        await supabase.auth.signOut();
-        setIsLoading(false);
-      } else if (profile?.role === 'admin') {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/');
-      }
-    } else {
-      setError("An unknown error occurred during login.");
-      setIsLoading(false);
-    }
+    setIsLoading(false);
   };
 
   const renderPasswordField = (placeholder: string, value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, show: boolean, toggleShow: () => void) => (
@@ -113,11 +129,10 @@ export default function LoginPage() {
   );
 
   return (
-    <>
-      {notification && <Notification message={notification} onClose={() => setNotification(null)} />}
       <div className="relative w-full max-w-4xl h-[600px] bg-white rounded-2xl shadow-lg overflow-hidden">
         
         <div className="absolute top-0 left-0 w-full h-full flex z-10">
+          {/* Login Form */}
           <div className="w-1/2 flex items-center justify-center p-8 md:p-12">
             <form onSubmit={handleLogin} className="w-full text-center">
               <h2 className="text-3xl font-medium text-brand-black">Login</h2>
@@ -132,6 +147,7 @@ export default function LoginPage() {
               </button>
             </form>
           </div>
+          {/* Register Form */}
           <div className="w-1/2 flex items-center justify-center p-8 md:p-12">
             <form onSubmit={handleRegister} className="w-full text-center">
               <h2 className="text-3xl font-medium text-brand-black">Registration</h2>
@@ -147,7 +163,7 @@ export default function LoginPage() {
                 <label htmlFor="terms" className="ml-2 text-sm text-brand-gray-1">I agree to the Terms of Service and Privacy Policy.</label>
               </div>
               <button type="submit" className="w-full mt-6 bg-brand-orange text-white font-medium py-4 rounded-full hover:bg-brand-orange-hover disabled:opacity-50 disabled:cursor-not-allowed" disabled={!isAgreed || isLoading}>
-                {isLoading ? 'Loading...' : 'Register'}
+                {isLoading ? 'Registering...' : 'Register'}
               </button>
             </form>
           </div>
@@ -158,18 +174,15 @@ export default function LoginPage() {
             <div className={`absolute transition-opacity duration-500 ${isRegisterView ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               <h2 className="text-3xl font-medium">Hello, Friend!</h2>
               <p className="mt-4 font-light">Create an account and start exploring high quality typefaces.</p>
-              <button onClick={() => setIsRegisterView(true)} className="mt-8 bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">Register Now</button>
+              <button onClick={handleToggleView} className="mt-8 bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">Register Now</button>
             </div>
             <div className={`absolute transition-opacity duration-500 ${isRegisterView ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <h2 className="text-3xl font-medium">Welcome Back!</h2>
               <p className="mt-4 font-light">Sign in to continue your creative journey.</p>
-              <button onClick={() => setIsRegisterView(false)} className="mt-8 bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">Login Now</button>
+              <button onClick={handleToggleView} className="mt-8 bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">Login Now</button>
             </div>
           </div>
         </div>
-
-        {error && <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-red-500 text-sm z-30">{error}</p>}
       </div>
-    </>
   );
 }

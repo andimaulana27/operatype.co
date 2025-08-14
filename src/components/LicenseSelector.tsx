@@ -5,12 +5,12 @@ import { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
 import { Database } from '@/lib/database.types';
 import { Tag } from 'lucide-react';
+import toast from 'react-hot-toast'; // BARU: Menambahkan import yang hilang
 
-// Menggunakan tipe data dari Supabase untuk konsistensi
+// Tipe data dari Supabase untuk konsistensi
 type FontData = Database['public']['Tables']['fonts']['Row'];
 type Discount = Database['public']['Tables']['discounts']['Row'];
 
-// DIPERBARUI: Menambahkan 'activeDiscount' ke props
 type LicenseSelectorProps = {
   font: FontData;
   activeDiscount: Discount | null;
@@ -24,12 +24,11 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
   const [totalPrice, setTotalPrice] = useState(font.price_desktop);
   const { addToCart } = useCart();
 
-  // DIPERBARUI: Logika kalkulasi harga sekarang memperhitungkan diskon
   useEffect(() => {
     let basePrice = 0;
-    if (selectedLicense === 'Desktop') basePrice = font.price_desktop;
-    else if (selectedLicense === 'Business') basePrice = font.price_business;
-    else if (selectedLicense === 'Corporate') basePrice = font.price_corporate;
+    if (selectedLicense === 'Desktop') basePrice = font.price_desktop ?? 0;
+    else if (selectedLicense === 'Business') basePrice = font.price_business ?? 0;
+    else if (selectedLicense === 'Corporate') basePrice = font.price_corporate ?? 0;
 
     let finalPrice = basePrice * userCount;
 
@@ -41,26 +40,29 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
   }, [selectedLicense, userCount, font, activeDiscount]);
 
   const handleAddToCart = () => {
+    const basePrice = (selectedLicense === 'Desktop' ? font.price_desktop : selectedLicense === 'Business' ? font.price_business : font.price_corporate) ?? 0;
+
     const itemToAdd = {
       id: `${font.id}-${selectedLicense}-${userCount}`,
       fontId: font.id,
       name: font.name,
       license: selectedLicense,
       price: totalPrice,
+      originalPrice: basePrice * userCount,
       users: userCount,
       imageUrl: font.main_image_url,
-      // Menambahkan info diskon jika ada, untuk ditampilkan di keranjang nanti
       discountName: activeDiscount?.name || null,
       discountPercentage: activeDiscount?.percentage || null,
     };
     addToCart(itemToAdd);
+    toast.success(`${font.name} (${selectedLicense}) added to cart!`);
   };
 
   const getPriceForType = (type: LicenseType) => {
       let basePrice = 0;
-      if (type === 'Desktop') basePrice = font.price_desktop;
-      else if (type === 'Business') basePrice = font.price_business;
-      else if (type === 'Corporate') basePrice = font.price_corporate;
+      if (type === 'Desktop') basePrice = font.price_desktop ?? 0;
+      else if (type === 'Business') basePrice = font.price_business ?? 0;
+      else if (type === 'Corporate') basePrice = font.price_corporate ?? 0;
       
       if (activeDiscount && activeDiscount.percentage) {
           return {
@@ -85,12 +87,11 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
                     </div>
                     <span className="font-medium">{type} License</span>
                 </div>
-                {/* DIPERBARUI: Tampilan harga dengan logika diskon */}
                 <div className="font-medium text-right">
                     {priceInfo.discounted !== null ? (
                         <div>
                             <span className="text-gray-400 line-through text-sm">${priceInfo.original.toFixed(2)}</span>
-                            <span className="text-green-600 ml-2">${priceInfo.discounted.toFixed(2)}</span>
+                            <span className="text-brand-orange ml-2">${priceInfo.discounted.toFixed(2)}</span>
                         </div>
                     ) : (
                         <span>${priceInfo.original.toFixed(2)}</span>
@@ -101,9 +102,9 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
                 <div className="flex justify-between items-center p-4 bg-brand-gray-2/50 border-t border-brand-gray-2">
                     <span className="text-sm font-medium">Number of Users:</span>
                     <div className="flex items-center gap-2 border border-brand-gray-1 rounded-full">
-                        <button onClick={() => setUserCount(Math.max(1, userCount - 1))} className="px-3 py-1 text-lg">-</button>
+                        <button type="button" onClick={() => setUserCount(Math.max(1, userCount - 1))} className="px-3 py-1 text-lg">-</button>
                         <span className="font-medium text-brand-orange text-lg">{userCount}</span>
-                        <button onClick={() => setUserCount(userCount + 1)} className="px-3 py-1 text-lg">+</button>
+                        <button type="button" onClick={() => setUserCount(userCount + 1)} className="px-3 py-1 text-lg">+</button>
                     </div>
                 </div>
             )}
@@ -114,7 +115,6 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
   return (
     <div>
       <h2 className="text-2xl font-medium">Choose Your License</h2>
-      {/* BARU: Menampilkan notifikasi jika ada diskon aktif */}
       {activeDiscount && (
           <div className="my-4 p-3 bg-green-100 border border-green-200 text-green-800 rounded-lg flex items-center gap-2">
             <Tag className="w-5 h-5"/>
@@ -136,7 +136,7 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
 
       <button 
         onClick={handleAddToCart}
-        className="w-full bg-brand-orange text-white text-lg font-medium py-4 rounded-full mt-6 hover:bg-brand-orange-hover"
+        className="w-full bg-brand-orange text-white text-lg font-medium py-4 rounded-full mt-6 hover:bg-brand-orange-hover transition-colors"
       >
         Add to Cart
       </button>

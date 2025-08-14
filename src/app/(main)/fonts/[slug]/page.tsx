@@ -9,18 +9,18 @@ import GlyphViewer from '@/components/GlyphViewer';
 import ProductCard from '@/components/ProductCard';
 import LicenseSelector from '@/components/LicenseSelector';
 import SectionHeader from '@/components/SectionHeader';
-import { FileIcon, ArchiveIcon } from '@/components/icons';
+import { FileIcon, ArchiveIcon, FolderIcon } from '@/components/icons';
 import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
 
-// Tipe data untuk konsistensi di seluruh file
+// Tipe data untuk konsistensi
 type Discount = Database['public']['Tables']['discounts']['Row'];
-type FontRow = Database['public']['Tables']['fonts']['Row'];
-type FontDetail = FontRow & {
+type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
   partners: { name: string } | null;
   categories: { name: string } | null;
   font_discounts: { discounts: Discount | null }[];
 };
+type RelatedFont = FontDetail;
 
 // Fungsi untuk mengambil data font berdasarkan slug
 async function getFontBySlug(slug: string): Promise<FontDetail> {
@@ -37,7 +37,7 @@ async function getFontBySlug(slug: string): Promise<FontDetail> {
 }
 
 // Fungsi untuk mengambil font terkait
-async function getRelatedFonts(currentId: string): Promise<FontDetail[]> {
+async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
     const { data, error } = await supabase
     .from('fonts')
     .select('*, partners(name), categories(name), font_discounts(discounts(*))')
@@ -48,14 +48,15 @@ async function getRelatedFonts(currentId: string): Promise<FontDetail[]> {
     console.error('Error fetching related fonts:', error);
     return [];
   }
-  return data as FontDetail[];
+  return data as RelatedFont[];
 }
 
-// DIPERBARUI: Tipe props didefinisikan langsung di sini untuk memastikan kecocokan
 export default async function FontDetailPage({ params }: { params: { slug: string } }) {
   const font = await getFontBySlug(params.slug);
   const relatedFonts = await getRelatedFonts(font.id);
-  const dynamicFontFamily = `dynamic-${font.name.replace(/\s+/g, '-')}`;
+  
+  const dynamicFontFamilyRegular = `dynamic-${font.slug}-Regular`;
+  const dynamicFontFamilyItalic = `dynamic-${font.slug}-Italic`;
 
   const now = new Date();
   const activeDiscount = font.font_discounts
@@ -70,8 +71,12 @@ export default async function FontDetailPage({ params }: { params: { slug: strin
   return (
     <>
       <DynamicFontLoader 
-        fontFamily={dynamicFontFamily} 
+        fontFamily={dynamicFontFamilyRegular} 
         fontUrl={font.display_font_regular_url} 
+      />
+      <DynamicFontLoader 
+        fontFamily={dynamicFontFamilyItalic} 
+        fontUrl={font.display_font_italic_url} 
       />
 
       <div className="container mx-auto px-4 py-12">
@@ -83,19 +88,23 @@ export default async function FontDetailPage({ params }: { params: { slug: strin
               galleryImages={font.gallery_image_urls as string[] || []}
             />
             <TypeTester 
-              fontFamily={font.name}
-              fontUrlRegular={font.display_font_regular_url}
-              fontUrlItalic={font.display_font_italic_url || undefined}
+              fontFamilyRegular={dynamicFontFamilyRegular}
+              fontFamilyItalic={font.display_font_italic_url ? dynamicFontFamilyItalic : undefined}
             />
           </div>
 
           <div className="w-full">
             <h1 className="text-5xl font-medium text-brand-black">{font.name}</h1>
-            {font.partners && (
-              <span className="inline-block bg-brand-orange text-white text-sm font-medium px-3 py-1 rounded-full mt-2">
-                by {font.partners.name}
-              </span>
-            )}
+            
+            {/* ================== PERUBAHAN DI SINI ================== */}
+            <div className="mt-2 text-sm">
+                <span className="text-gray-600">by </span>
+                <span className="font-semibold text-brand-orange">
+                    {font.partners?.name || 'Operatype.co'}
+                </span>
+            </div>
+            {/* ======================================================= */}
+
             <div className="border-b border-brand-black my-6"></div>
             
             <LicenseSelector font={font} activeDiscount={activeDiscount || null} />
@@ -123,12 +132,19 @@ export default async function FontDetailPage({ params }: { params: { slug: strin
               <SectionHeader title="Glyph" />
               <GlyphViewer 
                 glyphString={font.glyph_string}
-                fontFamily={dynamicFontFamily}
+                fontFamily={dynamicFontFamilyRegular}
               />
             </div>
           </div>
           <div>
             <div className="space-y-8">
+              <div>
+                <SectionHeader title="Category" />
+                <div className="flex items-center gap-3 font-light text-brand-black">
+                  <FolderIcon className="w-6 h-6 text-brand-orange flex-shrink-0" />
+                  <span>{font.categories?.name || 'Uncategorized'}</span>
+                </div>
+              </div>
               <div>
                 <SectionHeader title="File Type" />
                 <div className="flex items-center gap-3 font-light text-brand-black">
@@ -144,7 +160,7 @@ export default async function FontDetailPage({ params }: { params: { slug: strin
                 </div>
               </div>
                <div>
-                <SectionHeader title="Product Information" />
+                <SectionHeader title="Feature Product" />
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
                   {(font.product_information as string[] || []).map((info: string) => <li key={info}>{info}</li>)}
                 </ul>

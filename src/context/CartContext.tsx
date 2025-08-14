@@ -2,68 +2,76 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import ToastNotification from '@/components/ToastNotification';
+import toast from 'react-hot-toast'; // DIPERBARUI: Menggunakan react-hot-toast
 
-export type CartItem = {
+// DIPERBARUI: Menambahkan properti diskon ke tipe CartItem
+export interface CartItem {
   id: string;
   fontId: string;
   name: string;
-  license: 'Desktop' | 'Business' | 'Corporate';
+  license: string;
   price: number;
-  users?: number;
-  imageUrl: string;
-};
+  users: number;
+  imageUrl: string | null;
+  originalPrice: number; // Harga asli sebelum diskon
+  discountName: string | null; // Nama promo diskon
+  discountPercentage: number | null; // Persentase diskon
+}
 
-type CartContextType = {
+interface CartContextType {
   cartItems: CartItem[];
   addToCart: (item: CartItem) => void;
   removeFromCart: (itemId: string) => void;
   cartTotal: number;
-  cartItemCount: number;
-  showToast: (message: string) => void;
-};
+  itemCount: number;
+}
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-// PERBAIKAN: Sintaks props yang salah telah diperbaiki
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [cartTotal, setCartTotal] = useState(0);
-  const [toastMessage, setToastMessage] = useState('');
-  const [isToastVisible, setIsToastVisible] = useState(false);
+  // BARU: Memuat keranjang dari localStorage saat aplikasi pertama kali dibuka
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedCart = localStorage.getItem('operatype-cart');
+        return savedCart ? JSON.parse(savedCart) : [];
+      } catch (error) {
+        console.error("Failed to parse cart from localStorage", error);
+        return [];
+      }
+    }
+    return [];
+  });
 
+  // BARU: Menyimpan keranjang ke localStorage setiap kali ada perubahan
   useEffect(() => {
-    const total = cartItems.reduce((sum, item) => sum + item.price, 0);
-    setCartTotal(total);
+    try {
+        localStorage.setItem('operatype-cart', JSON.stringify(cartItems));
+    } catch (error) {
+        console.error("Failed to save cart to localStorage", error);
+    }
   }, [cartItems]);
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setIsToastVisible(true);
-    setTimeout(() => {
-      setIsToastVisible(false);
-    }, 3000);
-  };
 
   const addToCart = (item: CartItem) => {
     setCartItems(prevItems => {
+      // Cek apakah item dengan ID yang sama persis (termasuk lisensi dan jumlah user) sudah ada
       const existingItem = prevItems.find(i => i.id === item.id);
       if (existingItem) {
-        return prevItems.map(i => i.id === item.id ? item : i);
+        toast.error(`${item.name} (${item.license}) is already in your cart.`);
+        return prevItems; // Jangan tambahkan jika sudah ada
       }
       return [...prevItems, item];
     });
-    showToast(`${item.name} has been added to cart!`);
+    // Notifikasi toast sudah ditangani oleh LicenseSelector, jadi tidak perlu di sini
   };
 
   const removeFromCart = (itemId: string) => {
     setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
+    toast.success('Item removed from cart.');
   };
   
-  const childrenWithToast = <>
-    {children}
-    <ToastNotification message={toastMessage} isVisible={isToastVisible} />
-  </>
+  // Kalkulasi total harga berdasarkan harga akhir (yang mungkin sudah didiskon)
+  const cartTotal = cartItems.reduce((sum, item) => sum + item.price, 0);
 
   return (
     <CartContext.Provider 
@@ -72,11 +80,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         addToCart, 
         removeFromCart, 
         cartTotal,
-        cartItemCount: cartItems.length,
-        showToast
+        itemCount: cartItems.length,
       }}
     >
-      {childrenWithToast}
+      {children}
     </CartContext.Provider>
   );
 };

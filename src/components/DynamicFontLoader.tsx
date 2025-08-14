@@ -9,10 +9,13 @@ type DynamicFontLoaderProps = {
 };
 
 const DynamicFontLoader = ({ fontFamily, fontUrl }: DynamicFontLoaderProps) => {
+  // Jangan render apapun jika tidak ada URL font
   if (!fontUrl) {
     return null;
   }
 
+  // Komponen ini hanya bertugas merender blok <style>
+  // untuk mendefinisikan @font-face secara dinamis
   return (
     <style jsx global>{`
       @font-face {

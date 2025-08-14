@@ -4,13 +4,19 @@ import ProductCard from '@/components/ProductCard';
 import SectionTitle from '@/components/SectionTitle';
 import HeroCarousel from '@/components/HeroCarousel';
 import { supabase } from '@/lib/supabaseClient';
+import { Database } from '@/lib/database.types'; // BARU: Impor tipe untuk konsistensi
 
-// --- FUNGSI PENGAMBILAN DATA (DIPERBAIKI & DISIMPLIFIKASI) ---
-async function getFeaturedFonts() {
+// BARU: Mendefinisikan tipe data yang akan diterima oleh ProductCard
+type FontForCard = Database['public']['Tables']['fonts']['Row'] & {
+  font_discounts: { discounts: Pick<Database['public']['Tables']['discounts']['Row'], 'name' | 'percentage'> | null }[];
+};
+
+// --- FUNGSI PENGAMBILAN DATA (DIPERBARUI) ---
+async function getFeaturedFonts(): Promise<FontForCard[]> {
   const { data, error } = await supabase
     .from('fonts')
-    .select('*')
-    // PERBAIKAN: Query menjadi sangat sederhana
+    // DIPERBARUI: Query sekarang mengambil data diskon yang terhubung
+    .select('*, font_discounts(discounts(name, percentage))') 
     .eq('is_bestseller', false)
     .order('created_at', { ascending: false })
     .limit(8);
@@ -19,14 +25,14 @@ async function getFeaturedFonts() {
     console.error('Error fetching featured fonts:', error);
     return [];
   }
-  return data;
+  return data as FontForCard[];
 }
 
-async function getCuratedFonts() {
+async function getCuratedFonts(): Promise<FontForCard[]> {
   const { data, error } = await supabase
     .from('fonts')
-    .select('*')
-    // PERBAIKAN: Query menjadi sangat sederhana
+    // DIPERBARUI: Query sekarang mengambil data diskon yang terhubung
+    .select('*, font_discounts(discounts(name, percentage))')
     .eq('is_bestseller', true)
     .limit(4);
 
@@ -34,7 +40,7 @@ async function getCuratedFonts() {
     console.error('Error fetching curated fonts:', error);
     return [];
   }
-  return data;
+  return data as FontForCard[];
 }
 
 // --- DATA STATIS (Tetap sama) ---
@@ -83,6 +89,7 @@ export default async function HomePage() {
         <div className="container mx-auto px-4">
           <SectionTitle title="Our Featured Collection" subtitle="A curated selection of our most popular and newest script fonts, handpicked for you." />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Sekarang ProductCard akan menerima data font yang sudah termasuk info diskon */}
             {featuredFonts.map(font => <ProductCard key={font.id} font={font} />)}
           </div>
           <div className="text-center mt-16">
@@ -110,19 +117,19 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center group">
               <div className="overflow-hidden rounded-lg aspect-[1.33] relative">
-                <Image src={styleImages[0]} alt="Elegant & Wedding style" layout="fill" objectFit="cover" className="group-hover:scale-105 transition-transform duration-300"/>
+                <Image src={styleImages[0]} alt="Elegant & Wedding style" fill sizes="33vw" className="object-cover group-hover:scale-105 transition-transform duration-300"/>
               </div>
               <p className="mt-4 text-lg font-medium text-brand-black">Elegant & Wedding</p>
             </div>
             <div className="text-center group">
               <div className="overflow-hidden rounded-lg aspect-[1.33] relative">
-                <Image src={styleImages[1]} alt="Casual & Handwritten style" layout="fill" objectFit="cover" className="group-hover:scale-105 transition-transform duration-300"/>
+                <Image src={styleImages[1]} alt="Casual & Handwritten style" fill sizes="33vw" className="object-cover group-hover:scale-105 transition-transform duration-300"/>
               </div>
               <p className="mt-4 text-lg font-medium text-brand-black">Casual & Handwritten</p>
             </div>
             <div className="text-center group">
               <div className="overflow-hidden rounded-lg aspect-[1.33] relative">
-                <Image src={styleImages[2]} alt="Modern & Bold style" layout="fill" objectFit="cover" className="group-hover:scale-105 transition-transform duration-300"/>
+                <Image src={styleImages[2]} alt="Modern & Bold style" fill sizes="33vw" className="object-cover group-hover:scale-105 transition-transform duration-300"/>
               </div>
               <p className="mt-4 text-lg font-medium text-brand-black">Modern & Bold</p>
             </div>
@@ -176,7 +183,7 @@ export default async function HomePage() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {instagramImages.map((img, index) => (
               <div key={index} className="aspect-square relative rounded-lg overflow-hidden group">
-                <Image src={img} alt={`Instagram Post ${index + 1}`} layout="fill" objectFit="cover" className="group-hover:scale-105 transition-transform duration-300"/>
+                <Image src={img} alt={`Instagram Post ${index + 1}`} fill sizes="20vw" className="object-cover group-hover:scale-105 transition-transform duration-300"/>
               </div>
             ))}
           </div>
