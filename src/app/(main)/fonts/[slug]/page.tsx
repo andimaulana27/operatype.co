@@ -1,7 +1,6 @@
 // src/app/(main)/fonts/[slug]/page.tsx
 import { supabase } from "@/lib/supabaseClient";
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import Link from 'next/link';
 import FontImageGallery from '@/components/FontImageGallery';
 import TypeTester from '@/components/TypeTester';
