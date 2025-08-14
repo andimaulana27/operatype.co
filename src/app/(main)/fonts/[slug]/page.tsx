@@ -13,17 +13,7 @@ import { FileIcon, ArchiveIcon, FolderIcon } from '@/components/icons';
 import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
 
-// ================== PERBAIKAN DI SINI (1/2) ==================
-// Mendefinisikan tipe props yang benar untuk halaman Next.js
-type PageProps = {
-  params: {
-    slug: string;
-  };
-  searchParams?: { [key: string]: string | string[] | undefined };
-};
-// ==============================================================
-
-// Tipe data untuk konsistensi (TIDAK ADA PERUBAHAN)
+// Tipe data untuk konsistensi (Tidak ada perubahan)
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
   partners: { name: string } | null;
@@ -32,7 +22,7 @@ type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
 };
 type RelatedFont = FontDetail;
 
-// Fungsi untuk mengambil data font berdasarkan slug (TIDAK ADA PERUBAHAN)
+// Fungsi-fungsi (Tidak ada perubahan)
 async function getFontBySlug(slug: string): Promise<FontDetail> {
   const { data, error } = await supabase
     .from('fonts')
@@ -46,7 +36,6 @@ async function getFontBySlug(slug: string): Promise<FontDetail> {
   return data as FontDetail;
 }
 
-// Fungsi untuk mengambil font terkait (TIDAK ADA PERUBAHAN)
 async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
     const { data, error } = await supabase
     .from('fonts')
@@ -61,9 +50,14 @@ async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
   return data as RelatedFont[];
 }
 
-// ================== PERBAIKAN DI SINI (2/2) ==================
-// Menggunakan tipe 'PageProps' yang sudah didefinisikan untuk props komponen
-export default async function FontDetailPage({ params }: PageProps) {
+// ================== PERBAIKAN FINAL DI SINI ==================
+// Tipe props didefinisikan secara langsung (inline) pada komponen.
+// Ini adalah cara paling ampuh untuk mengatasi error tipe yang persisten.
+export default async function FontDetailPage({ 
+    params 
+}: { 
+    params: { slug: string } 
+}) {
 // ==============================================================
   const font = await getFontBySlug(params.slug);
   const relatedFonts = await getRelatedFonts(font.id);

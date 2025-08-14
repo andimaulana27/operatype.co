@@ -1,17 +1,15 @@
-// next.config.ts
-import { NextConfig } from 'next';
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'qdatempkonebloyfiukj.supabase.co', 
+        hostname: 'qdatempkonebloyfiukj.supabase.co',
       },
     ],
   },
   experimental: {
-    serverActions: {},
+    serverActions: true, // Diaktifkan secara eksplisit
   },
   eslint: {
     // PERINGATAN: Opsi ini akan membuat proses build berhasil,
