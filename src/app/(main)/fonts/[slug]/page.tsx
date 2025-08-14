@@ -13,7 +13,15 @@ import { FileIcon, ArchiveIcon, FolderIcon } from '@/components/icons';
 import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
 
-// Tipe 'PageProps' dihapus dari sini untuk menghindari konflik.
+// ================== PERBAIKAN DI SINI (1/2) ==================
+// Mendefinisikan tipe props yang benar untuk halaman Next.js
+type PageProps = {
+  params: {
+    slug: string;
+  };
+  searchParams?: { [key: string]: string | string[] | undefined };
+};
+// ==============================================================
 
 // Tipe data untuk konsistensi (TIDAK ADA PERUBAHAN)
 type Discount = Database['public']['Tables']['discounts']['Row'];
@@ -53,14 +61,9 @@ async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
   return data as RelatedFont[];
 }
 
-// ================== PERBAIKAN FINAL DI SINI ==================
-// Tipe props didefinisikan secara langsung (inline) pada komponen.
-// Ini adalah cara paling ampuh untuk mengatasi error tipe yang persisten.
-export default async function FontDetailPage({ 
-    params 
-}: { 
-    params: { slug: string } 
-}) {
+// ================== PERBAIKAN DI SINI (2/2) ==================
+// Menggunakan tipe 'PageProps' yang sudah didefinisikan untuk props komponen
+export default async function FontDetailPage({ params }: PageProps) {
 // ==============================================================
   const font = await getFontBySlug(params.slug);
   const relatedFonts = await getRelatedFonts(font.id);
