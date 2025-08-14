@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import { ChevronDownIcon } from '@/components/icons';
 
-// DIPERBARUI: Props sekarang menerima nama font-family untuk setiap style
 type TypeTesterProps = {
   fontFamilyRegular: string;
   fontFamilyItalic?: string;
@@ -23,25 +22,85 @@ const TypeTester = ({ fontFamilyRegular, fontFamilyItalic }: TypeTesterProps) =>
   const [text, setText] = useState(pangramOptions[0]);
   const [activeStyle, setActiveStyle] = useState<'Regular' | 'Italic'>('Regular');
 
-  // DIPERBARUI: Logika ini sekarang hanya beralih antara nama font-family
-  // yang sudah dimuat oleh halaman induknya.
   const currentFontFamily = activeStyle === 'Italic' && fontFamilyItalic 
     ? fontFamilyItalic 
     : fontFamilyRegular;
   
+  const minSize = 12;
+  const maxSize = 120;
+  const progress = ((fontSize - minSize) / (maxSize - minSize)) * 100;
+
   return (
     <div className="mt-16">
+      {/* BARU: Menambahkan blok style kustom untuk slider */}
+      <style jsx>{`
+        .custom-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100%;
+          height: 4px;
+          background: transparent; /* Latar belakang asli dibuat transparan */
+          outline: none;
+          cursor: pointer;
+        }
+
+        /* TRACK SLIDER UNTUK CHROME/SAFARI */
+        .custom-slider::-webkit-slider-runnable-track {
+          width: 100%;
+          height: 4px;
+          cursor: pointer;
+          background: linear-gradient(to right, var(--brand-orange) ${progress}%, #d1d5db ${progress}%);
+          border-radius: 9999px;
+        }
+
+        /* THUMB (POIN BULAT) UNTUK CHROME/SAFARI */
+        .custom-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          height: 20px;
+          width: 20px;
+          background: #ffffff; /* Fill putih */
+          border: 3px solid var(--brand-orange); /* Stroke oranye */
+          border-radius: 50%;
+          cursor: pointer;
+          margin-top: -8px; /* Menyesuaikan posisi thumb agar pas di tengah track */
+        }
+        
+        /* TRACK SLIDER UNTUK FIREFOX */
+        .custom-slider::-moz-range-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: linear-gradient(to right, var(--brand-orange) ${progress}%, #d1d5db ${progress}%);
+            border-radius: 9999px;
+        }
+
+        /* THUMB (POIN BULAT) UNTUK FIREFOX */
+        .custom-slider::-moz-range-thumb {
+            height: 20px;
+            width: 20px;
+            background: #ffffff;
+            border: 3px solid var(--brand-orange);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+      `}</style>
+
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-2xl font-medium">Type Tester</h3>
         <div className="flex items-center gap-4 w-full md:w-auto">
-          <input
-            type="range"
-            min="12"
-            max="120"
-            value={fontSize}
-            onChange={(e) => setFontSize(Number(e.target.value))}
-            className="w-full md:w-48 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
+          {/* DIPERBARUI: Menggunakan input range tunggal dengan style kustom */}
+          <div className="w-full md:w-48 flex items-center">
+            <input
+              type="range"
+              min={minSize}
+              max={maxSize}
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              className="custom-slider"
+              // Mendefinisikan warna brand sebagai CSS variable
+              style={{ '--brand-orange': '#C8705C' } as React.CSSProperties}
+            />
+          </div>
           <span className="text-lg font-medium w-16 text-right">{fontSize}px</span>
         </div>
       </div>
@@ -56,7 +115,6 @@ const TypeTester = ({ fontFamilyRegular, fontFamilyItalic }: TypeTesterProps) =>
              className="w-full bg-transparent text-brand-black pl-6 pr-12 py-3 border border-brand-black rounded-full focus:outline-none focus:border-brand-orange transition-colors appearance-none"
            >
              <option value="Regular">Regular</option>
-             {/* Tombol Italic hanya muncul jika prop-nya diberikan */}
              {fontFamilyItalic && <option value="Italic">Italic</option>}
            </select>
            <ChevronDownIcon className="h-5 w-5 text-brand-orange absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
