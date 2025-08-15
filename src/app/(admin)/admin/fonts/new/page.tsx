@@ -7,9 +7,10 @@ import { useRouter } from 'next/navigation';
 import { Database } from '@/lib/database.types';
 import opentype from 'opentype.js';
 import { useDropzone } from 'react-dropzone';
-import Image from 'next/image'; // DIPERBARUI: Nama import kembali ke 'Image'
+import Image from 'next/image';
 import toast from 'react-hot-toast';
-import { PhotoIcon } from '@/components/icons'; // BARU: Menambahkan import untuk PhotoIcon
+import { PhotoIcon } from '@/components/icons';
+import { addFontAction } from '@/app/actions/fontActions'; // DIPERBARUI: Import server action
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
@@ -33,7 +34,7 @@ type FontFormData = {
   partner_id: string | null;
 };
 
-// Komponen TagInput
+// Komponen TagInput (Tidak ada perubahan)
 const TagInput = ({ label, tags, setTags }: { label: string, tags: string[], setTags: (tags: string[]) => void }) => {
   const [inputValue, setInputValue] = useState('');
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -90,7 +91,7 @@ export default function AddNewFontPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  // Dropzone Logic
+  // Dropzone Logic (Tidak ada perubahan)
   const onDropMainImage = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles?.length) {
       setFiles(prev => ({ ...prev, mainImage: acceptedFiles[0] }));
@@ -124,6 +125,7 @@ export default function AddNewFontPage() {
     }));
   }
 
+  // Fetch data dropdown (Tidak ada perubahan)
   useEffect(() => {
     const fetchDropdownData = async () => {
       const { data: categoriesData } = await supabase.from('categories').select('*');
@@ -134,6 +136,7 @@ export default function AddNewFontPage() {
     fetchDropdownData();
   }, []);
 
+  // Handler input change (Tidak ada perubahan)
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
@@ -148,6 +151,7 @@ export default function AddNewFontPage() {
     }
   };
   
+  // Handler file change (Tidak ada perubahan)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files: inputFiles } = e.target;
     if (inputFiles && inputFiles.length > 0) {
@@ -164,6 +168,7 @@ export default function AddNewFontPage() {
     }
   };
 
+  // Scan Glyphs (Tidak ada perubahan)
   const scanGlyphs = (file: File) => {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -189,6 +194,7 @@ export default function AddNewFontPage() {
     reader.readAsArrayBuffer(file);
   };
   
+  // handleSubmit (DIROMBAK TOTAL)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name) {
@@ -197,85 +203,47 @@ export default function AddNewFontPage() {
     }
     setIsLoading(true);
 
-    try {
-        let main_image_url = '';
-        let gallery_image_urls: string[] = [];
-        let downloadable_file_url = '';
-        let display_font_regular_url = '';
-        let display_font_italic_url = '';
+    const data = new FormData();
 
-        const uploadPromise = new Promise<void>(async (resolve, reject) => {
-            try {
-                if (files.mainImage) {
-                    const { data, error } = await supabase.storage.from('font_images').upload(`${Date.now()}_${files.mainImage.name}`, files.mainImage);
-                    if (error) throw new Error('Error uploading main image: ' + error.message);
-                    main_image_url = supabase.storage.from('font_images').getPublicUrl(data.path).data.publicUrl;
-                }
+    // Tambahkan semua data teks ke FormData
+    Object.entries(formData).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        data.append(key, JSON.stringify(value));
+      } else if (value !== null) {
+        data.append(key, String(value));
+      }
+    });
 
-                if (files.galleryImages.length > 0) {
-                    await Promise.all(files.galleryImages.map(async (file) => {
-                        const { data, error } = await supabase.storage.from('font_images').upload(`${Date.now()}_${file.name}`, file);
-                        if (error) throw new Error(`Error uploading gallery image ${file.name}: ${error.message}`);
-                        gallery_image_urls.push(supabase.storage.from('font_images').getPublicUrl(data.path).data.publicUrl);
-                    }));
-                }
-                
-                if (files.downloadableFile) {
-                    const { data, error } = await supabase.storage.from('downloadable-files').upload(`${Date.now()}_${files.downloadableFile.name}`, files.downloadableFile);
-                    if (error) throw new Error('Error uploading downloadable file: ' + error.message);
-                    downloadable_file_url = data.path;
-                }
+    // Tambahkan semua file ke FormData
+    if (files.mainImage) data.append('mainImage', files.mainImage);
+    files.galleryImages.forEach(file => data.append('galleryImages', file));
+    if (files.displayFontRegular) data.append('displayFontRegular', files.displayFontRegular);
+    if (files.displayFontItalic) data.append('displayFontItalic', files.displayFontItalic);
+    if (files.downloadableFile) data.append('downloadableFile', files.downloadableFile);
 
-                if (files.displayFontRegular) {
-                    const { data, error } = await supabase.storage.from('display-fonts').upload(`public/${Date.now()}_${files.displayFontRegular.name}`, files.displayFontRegular);
-                    if (error) throw new Error('Error uploading display font regular: ' + error.message);
-                    display_font_regular_url = supabase.storage.from('display-fonts').getPublicUrl(data.path).data.publicUrl;
-                }
-
-                if (files.displayFontItalic) {
-                    const { data, error } = await supabase.storage.from('display-fonts').upload(`public/${Date.now()}_${files.displayFontItalic.name}`, files.displayFontItalic);
-                    if (error) throw new Error('Error uploading display font italic: ' + error.message);
-                    display_font_italic_url = supabase.storage.from('display-fonts').getPublicUrl(data.path).data.publicUrl;
-                }
-                resolve();
-            } catch (uploadError) {
-                reject(uploadError);
-            }
-        });
-
-        await toast.promise(uploadPromise, {
-            loading: 'Uploading files...',
-            success: 'Files uploaded successfully!',
-            error: (err) => `Upload failed: ${err.message}`
-        });
-
-        const { error: insertError } = await supabase.from('fonts').insert({
-          ...formData,
-          price_desktop: parseFloat(String(formData.price_desktop)),
-          price_business: parseFloat(String(formData.price_business)),
-          price_corporate: parseFloat(String(formData.price_corporate)),
-          main_image_url,
-          gallery_image_urls,
-          downloadable_file_url,
-          display_font_regular_url,
-          display_font_italic_url: display_font_italic_url || null,
-        });
-
-        if (insertError) throw new Error('Error saving font data: ' + insertError.message);
-        
-        toast.success('Font created successfully! Redirecting...');
-        
+    // Tampilkan notifikasi toast selama proses server action
+    await toast.promise(
+      addFontAction(data).then(result => {
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        // Jika berhasil, redirect setelah sedikit jeda
         setTimeout(() => {
-            router.push('/admin/fonts');
+          router.push('/admin/fonts');
         }, 1500);
+        return result.success;
+      }),
+      {
+        loading: 'Saving font and uploading files...',
+        success: (message) => `${message} Redirecting...`,
+        error: (err) => `${err.message}`,
+      }
+    );
 
-    } catch (error: any) {
-        toast.error(error.message);
-    } finally {
-        setIsLoading(false);
-    }
+    setIsLoading(false);
   };
 
+  // Render JSX (Tidak ada perubahan signifikan)
   return (
     <form onSubmit={handleSubmit} className="pb-12">
       <div className="flex justify-between items-center mb-6">
@@ -288,6 +256,7 @@ export default function AddNewFontPage() {
         </button>
       </div>
 
+      {/* Sisa dari JSX (Form fields, Dropzones, etc.) tetap sama persis */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6 bg-white p-6 rounded-lg shadow-md">
           <div>
@@ -365,7 +334,6 @@ export default function AddNewFontPage() {
                         </>
                     ) : (
                         <div className="text-gray-500 flex flex-col items-center justify-center">
-                            {/* DIPERBARUI: Menggunakan komponen ikon dari file icons.tsx */}
                             <PhotoIcon className="w-16 h-16 text-gray-400 mb-2" />
                             <p className="font-semibold text-brand-orange">Click to upload or drag and drop</p>
                             <p className="text-xs mt-1">PNG, JPG, WEBP (2250x1500px ideal)</p>
@@ -379,7 +347,6 @@ export default function AddNewFontPage() {
                 <div {...galleryRootProps()} className={`p-4 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors mb-4 ${galleryIsDragActive ? 'border-brand-orange bg-orange-50' : 'border-gray-300 hover:border-gray-400'}`}>
                     <input {...galleryInputProps()} />
                      <div className="text-gray-500">
-                        {/* DIPERBARUI: Menggunakan ikon dari file icons.tsx */}
                         <PhotoIcon className="w-8 h-8 text-gray-400 mx-auto mb-1" />
                         <p>Click or drag up to 15 images here</p>
                     </div>
