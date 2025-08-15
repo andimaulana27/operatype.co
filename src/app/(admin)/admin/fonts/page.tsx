@@ -54,14 +54,14 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, fontsToDelete, is
 const CreateDiscountModal = ({ isOpen, onClose, onSave, isLoading }: { isOpen: boolean, onClose: () => void, onSave: (data: DiscountInsert) => void, isLoading: boolean }) => {
     // Implementasi lengkap modal ini...
     if (!isOpen) return null;
-    return <div className="fixed inset-0 bg-black bg-opacity-50 z-50">...</div>;
+    return <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4"><div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">...</div></div>;
 };
 
 // Komponen Modal Terapkan Diskon
 const ApplyDiscountModal = ({ isOpen, onClose, onApply, discounts, isLoading }: { isOpen: boolean, onClose: () => void, onApply: (id: string) => void, discounts: Discount[], isLoading: boolean }) => {
     // Implementasi lengkap modal ini...
     if (!isOpen) return null;
-    return <div className="fixed inset-0 bg-black bg-opacity-50 z-50">...</div>;
+    return <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4"><div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">...</div></div>;
 };
 
 // Komponen Badge Status
@@ -86,7 +86,7 @@ export default function ManageFontsPage() {
   const [isApplyDiscountModalOpen, setIsApplyDiscountModalOpen] = useState(false);
   const [activeDiscounts, setActiveDiscounts] = useState<Discount[]>([]);
 
-  // BARU: Gunakan useTransition untuk loading state pada server action
+  // BARU: Gunakan useTransition untuk loading state yang tidak memblokir UI
   const [isPending, startTransition] = useTransition();
 
   const fetchData = async () => {
@@ -167,8 +167,14 @@ export default function ManageFontsPage() {
 
   const handleCreateDiscount = async (discountData: DiscountInsert) => { /* ... */ };
   const handleApplyDiscount = async (discountId: string) => { /* ... */ };
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => { /* ... */ };
-  const handleSelectOne = (id: string, isChecked: boolean) => { /* ... */ };
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) setSelectedFonts(paginatedFonts.map(f => f.id));
+    else setSelectedFonts([]);
+  };
+  const handleSelectOne = (id: string, isChecked: boolean) => {
+    if (isChecked) setSelectedFonts(prev => [...prev, id]);
+    else setSelectedFonts(prev => prev.filter(fontId => fontId !== id));
+  };
   const isAllOnPageSelected = paginatedFonts.length > 0 && paginatedFonts.every(f => selectedFonts.includes(f.id));
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';

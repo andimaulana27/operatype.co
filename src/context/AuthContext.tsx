@@ -1,13 +1,15 @@
 // src/context/AuthContext.tsx
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
+import toast from 'react-hot-toast';
 
+// Tipe data Profile dibuat lebih aman (mengizinkan null)
 type Profile = {
-  full_name: string;
-  role: string;
+  full_name: string | null;
+  role: string | null;
 };
 
 type AuthContextType = {
@@ -24,43 +26,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Mulai dengan loading = true
 
+  // DIPERBARUI: Logika pengambilan data dibuat lebih tangguh dengan try...catch...finally
   useEffect(() => {
     const getSessionAndProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
+      try {
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
 
-      if (session?.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('full_name, role')
-          .eq('id', session.user.id)
-          .single();
-        setProfile(profileData);
+        setSession(currentSession);
+        const currentUser = currentSession?.user ?? null;
+        setUser(currentUser);
+
+        if (currentUser) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('full_name, role')
+            .eq('id', currentUser.id)
+            .single();
+          
+          if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = baris tidak ditemukan
+            throw profileError;
+          }
+          setProfile(profileData);
+        } else {
+          setProfile(null);
+        }
+      } catch (error: any) {
+        toast.error("Could not fetch session: " + error.message);
+        setProfile(null);
+        setUser(null);
+        setSession(null);
+      } finally {
+        // Blok finally akan SELALU dijalankan, baik ada error maupun tidak
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     getSessionAndProfile();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('full_name, role')
-            .eq('id', session.user.id)
-            .single();
-          setProfile(profileData);
-        } else {
-          setProfile(null);
-        }
-        setLoading(false);
+      (event, newSession) => {
+        // Cukup panggil ulang fungsi utama untuk menyinkronkan semua data
+        getSessionAndProfile();
       }
     );
 
@@ -69,17 +78,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // DIPERBARUI: Fungsi logout dibuat lebih aman dengan try...catch
   const logout = async () => {
-    await supabase.auth.signOut();
-    // Menggunakan window.location untuk memastikan reload penuh
-    window.location.href = '/login'; 
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      window.location.href = '/login'; 
+    } catch (error: any) {
+      toast.error('Logout failed: ' + error.message);
+    }
   };
 
   const value = { session, user, profile, loading, logout };
 
+  // BARU: Menambahkan "Gerbang Loading" untuk mencegah layar putih
+  if (loading) {
+    return null; // Atau tampilkan komponen loading satu layar penuh
+  }
+
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
