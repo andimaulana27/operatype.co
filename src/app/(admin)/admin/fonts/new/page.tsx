@@ -265,10 +265,7 @@ export default function AddNewFontPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
                 <label className="font-medium block mb-2">Main Preview Image</label>
-                <div {...mainImageRootProps()} className={`relative group w-full h-80 border-2 border-dashed rounded-lg flex items-center justify-center text-center cursor-pointer transition-colors ${mainImageIsDragActive ? 'border-brand-orange bg-orange-50' : 'border-gray-300 hover:border-gray-400'}`}>
-                    <input {...mainImageInputProps()} />
-                    {files.mainImage ? (<Image src={URL.createObjectURL(files.mainImage)} alt="Preview" fill style={{ objectFit: 'cover' }} className="rounded-lg" />) : (<div className="text-gray-500 flex flex-col items-center justify-center"><PhotoIcon className="w-16 h-16 text-gray-400 mb-2" /><p className="font-semibold text-brand-orange">Click to upload or drag and drop</p><p className="text-xs mt-1">PNG, JPG, WEBP</p></div>)}
-                </div>
+                <div {...mainImageRootProps()} className={`relative group w-full h-80 border-2 border-dashed rounded-lg flex items-center justify-center text-center cursor-pointer transition-colors ${mainImageIsDragActive ? 'border-brand-orange bg-orange-50' : 'border-gray-300 hover:border-gray-400'}`}><input {...mainImageInputProps()} />{files.mainImage ? (<Image src={URL.createObjectURL(files.mainImage)} alt="Preview" fill style={{ objectFit: 'cover' }} className="rounded-lg" />) : (<div className="text-gray-500 flex flex-col items-center justify-center"><PhotoIcon className="w-16 h-16 text-gray-400 mb-2" /><p className="font-semibold text-brand-orange">Click to upload or drag and drop</p><p className="text-xs mt-1">PNG, JPG, WEBP</p></div>)}</div>
             </div>
             <div>
                 <label className="font-medium block mb-2">Gallery Images (Max 15)</label>
@@ -293,6 +290,19 @@ export default function AddNewFontPage() {
                 <div><label className="font-medium">File Size</label><input type="text" name="file_size" value={formData.file_size || ''} className="w-full p-2 border rounded-md mt-1 bg-gray-100" readOnly /></div>
             </div>
         </div>
+      </div>
+      
+      {/* BARU: Menambahkan kembali bagian Glyph Display */}
+      <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
+        <h3 className="text-lg font-semibold border-b pb-2 mb-4">Glyph Display</h3>
+        <p className="text-sm text-gray-500 mb-2">Glyphs are scanned automatically from the display font file. You can edit them here if needed.</p>
+        <textarea 
+            name="glyph_string" 
+            value={formData.glyph_string || ''} 
+            onChange={handleInputChange} 
+            rows={4} 
+            className="w-full p-2 border rounded-md bg-gray-100" 
+        />
       </div>
     </form>
   );
