@@ -3,15 +3,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import SectionTitle from '@/components/SectionTitle';
 import { supabase } from '@/lib/supabaseClient';
+import { Database } from '@/lib/database.types'; // Impor tipe Database
 
-// Tipe data untuk Partner
-type Partner = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  logo_url: string;
-};
+// Menggunakan tipe Partner dari file definisi tipe
+type Partner = Database['public']['Tables']['partners']['Row'];
 
 // Fungsi untuk mengambil data semua partner
 async function getPartners(): Promise<Partner[]> {
@@ -23,13 +18,14 @@ async function getPartners(): Promise<Partner[]> {
     console.error('Error fetching partners:', error);
     return [];
   }
-  return data;
+  return data || [];
 }
 
-const PartnerCard = ({ name, description, logoUrl, slug }: { name: string; description: string; logoUrl: string; slug: string; }) => (
+const PartnerCard = ({ name, description, logoUrl, slug }: { name: string; description: string; logoUrl: string | null; slug: string; }) => (
   <div className="text-center flex flex-col items-center">
     <div className="relative w-full h-24 mb-6">
-      <Image src={logoUrl} alt={`${name} logo`} layout="fill" objectFit="contain" />
+      {/* Menambahkan placeholder jika logo_url null */}
+      <Image src={logoUrl || '/placeholder-logo.png'} alt={`${name} logo`} layout="fill" objectFit="contain" />
     </div>
     <h3 className="text-2xl font-medium text-brand-black">{name}</h3>
     <p className="font-light text-brand-gray-1 mt-2 max-w-xs mx-auto">{description}</p>
@@ -57,7 +53,7 @@ export default async function PartnersPage() {
               <PartnerCard 
                 key={partner.id}
                 name={partner.name}
-                description={partner.description}
+                description={partner.subheadline} // Diganti dari description
                 logoUrl={partner.logo_url}
                 slug={partner.slug}
               />

@@ -45,7 +45,7 @@ export default function ManageOrdersPage() {
       if (error) {
         toast.error('Failed to fetch orders: ' + error.message);
       } else {
-        setOrders((data as any[]) || []);
+        setOrders(data || []);
       }
       setIsLoading(false);
     };

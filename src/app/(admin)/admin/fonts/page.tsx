@@ -24,8 +24,9 @@ type FontWithDetails = FontRow & {
 
 const ITEMS_PER_PAGE = 10;
 
-// --- Komponen-komponen Modal & Badge ---
+// --- Komponen Modal ---
 
+// Komponen Modal Konfirmasi Hapus (Tidak ada perubahan)
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, fontsToDelete, isLoading }: { isOpen: boolean, onClose: () => void, onConfirm: () => void, fontsToDelete: FontWithDetails[], isLoading: boolean }) => {
     if (!isOpen) return null;
     const fontCount = fontsToDelete.length;
@@ -35,7 +36,7 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, fontsToDelete, is
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
                 <div className="flex items-start">
                     <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                        <AlertTriangle className="h-6 w-6 text-red-600" />
+                        <AlertTriangle className="h-6 w-6 text-red-600" aria-hidden="true" />
                     </div>
                     <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                         <h3 className="text-lg leading-6 font-medium text-gray-900">Delete Font(s)</h3>
@@ -51,67 +52,158 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, fontsToDelete, is
     );
 };
 
+// ================= PERBAIKAN DIMULAI DI SINI (1) =================
+// Komponen Modal Buat Diskon
 const CreateDiscountModal = ({ isOpen, onClose, onSave, isLoading }: { isOpen: boolean, onClose: () => void, onSave: (data: DiscountInsert) => void, isLoading: boolean }) => {
     const [name, setName] = useState('');
-    const [percentage, setPercentage] = useState('');
+    const [percentage, setPercentage] = useState<number | ''>('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [isActive, setIsActive] = useState(true);
 
-    const handleSubmit = () => {
-        if (!name || !percentage || !startDate || !endDate) { toast.error('Please fill all fields.'); return; }
-        const percValue = parseInt(percentage);
-        if (percValue <= 0 || percValue > 100) { toast.error('Percentage must be between 1 and 100.'); return; }
-        if (new Date(startDate) >= new Date(endDate)) { toast.error('End date must be after the start date.'); return; }
-        onSave({ name, percentage: percValue, start_date: new Date(startDate).toISOString(), end_date: new Date(endDate).toISOString(), is_active: true });
-    };
     if (!isOpen) return null;
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name || percentage === '' || !startDate || !endDate) {
+            toast.error('Please fill all required fields.');
+            return;
+        }
+        if (percentage < 1 || percentage > 100) {
+            toast.error('Percentage must be between 1 and 100.');
+            return;
+        }
+        onSave({
+            name,
+            percentage,
+            start_date: startDate,
+            end_date: endDate,
+            is_active: isActive,
+        });
+    };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
-                <h3 className="text-xl leading-6 font-bold text-gray-900 mb-4">Create New Discount</h3>
-                <div className="space-y-4">
-                    <div><label className="block text-sm font-medium text-gray-700">Discount Name</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder='e.g., Summer Sale 2025' className="mt-1 block w-full p-2 border rounded-md" /></div>
-                    <div><label className="block text-sm font-medium text-gray-700">Percentage (%)</label><input type="number" value={percentage} onChange={(e) => setPercentage(e.target.value)} placeholder='e.g., 20' className="mt-1 block w-full p-2 border rounded-md" min="1" max="100"/></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-medium text-gray-700">Start Date</label><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 block w-full p-2 border rounded-md" /></div>
-                        <div><label className="block text-sm font-medium text-gray-700">End Date</label><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 block w-full p-2 border rounded-md" /></div>
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Create New Discount</h3>
+                <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+                    <div>
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700">Discount Name</label>
+                        <input type="text" id="name" value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required />
                     </div>
-                </div>
-                <div className="mt-6 sm:flex sm:flex-row-reverse">
-                    <button type="button" onClick={handleSubmit} disabled={isLoading} className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50">{isLoading ? 'Saving...' : 'Save Discount'}</button>
-                    <button type="button" onClick={onClose} disabled={isLoading} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
-                </div>
+                    <div>
+                        <label htmlFor="percentage" className="block text-sm font-medium text-gray-700">Percentage (%)</label>
+                        <input type="number" id="percentage" value={percentage} onChange={e => setPercentage(Number(e.target.value))} min="1" max="100" className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">Start Date</label>
+                            <input type="date" id="start_date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required />
+                        </div>
+                        <div>
+                            <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">End Date</label>
+                            <input type="date" id="end_date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required />
+                        </div>
+                    </div>
+                     <div className="flex items-center">
+                        <input id="is_active" name="is_active" type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
+                        <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">Activate this discount</label>
+                    </div>
+                    <div className="mt-6 flex justify-end gap-3">
+                        <button type="button" onClick={onClose} disabled={isLoading} className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+                        <button type="submit" disabled={isLoading} className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-brand-orange-hover disabled:opacity-50">{isLoading ? 'Saving...' : 'Create Discount'}</button>
+                    </div>
+                </form>
             </div>
         </div>
     );
 };
 
-const ApplyDiscountModal = ({ isOpen, onClose, onApply, discounts, isLoading }: { isOpen: boolean, onClose: () => void, onApply: (id: string) => void, discounts: Discount[], isLoading: boolean }) => {
-    const [selectedDiscountId, setSelectedDiscountId] = useState<string>('');
-    useEffect(() => { if (isOpen && discounts.length > 0) setSelectedDiscountId(discounts[0].id); }, [isOpen, discounts]);
+// Komponen Modal Terapkan Diskon (Tidak ada perubahan)
+const ApplyDiscountModal = ({ isOpen, onClose, onApply, discounts, isLoading, selectedFontCount }: { isOpen: boolean, onClose: () => void, onApply: (id: string | null) => void, discounts: Discount[], isLoading: boolean, selectedFontCount: number }) => {
+    const [selectedDiscountId, setSelectedDiscountId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedDiscountId(discounts.length > 0 ? discounts[0].id : null);
+        }
+    }, [isOpen, discounts]);
 
     if (!isOpen) return null;
+
+    const handleApplyClick = () => {
+        if (selectedDiscountId) {
+            onApply(selectedDiscountId);
+        } else {
+            toast.error("Please select a discount to apply.");
+        }
+    };
+    
+    const handleRemoveDiscount = () => {
+      onApply(null);
+    }
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-                <h3 className="text-xl leading-6 font-bold text-gray-900 mb-4">Apply Discount to Selected Fonts</h3>
-                {discounts.length > 0 ? (
-                    <div>
-                        <label htmlFor="discount-select" className="block text-sm font-medium text-gray-700">Select an active discount:</label>
-                        <select id="discount-select" value={selectedDiscountId} onChange={(e) => setSelectedDiscountId(e.target.value)} className="mt-1 block w-full p-2 border rounded-md">
-                            {discounts.map((d) => (<option key={d.id} value={d.id}>{d.name} ({d.percentage}%)</option>))}
-                        </select>
-                    </div>
-                ) : <p className="text-gray-600">No active discounts found. Please create one first.</p>}
-                <div className="mt-6 sm:flex sm:flex-row-reverse">
-                    <button type="button" onClick={() => onApply(selectedDiscountId)} disabled={isLoading || discounts.length === 0} className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50">{isLoading ? 'Applying...' : 'Apply Discount'}</button>
-                    <button type="button" onClick={onClose} disabled={isLoading} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Apply Discount</h3>
+                <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                        Select a discount to apply to the {selectedFontCount} selected font(s). 
+                        This will overwrite any existing discount on these fonts.
+                    </p>
+                </div>
+                <div className="mt-4">
+                    <label htmlFor="discount-select" className="block text-sm font-medium text-gray-700">Available Discounts</label>
+                    <select
+                        id="discount-select"
+                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-brand-orange focus:border-brand-orange sm:text-sm rounded-md"
+                        value={selectedDiscountId || ''}
+                        onChange={(e) => setSelectedDiscountId(e.target.value)}
+                        disabled={discounts.length === 0}
+                    >
+                        {discounts.length > 0 ? (
+                           discounts.map(d => (
+                                <option key={d.id} value={d.id}>{d.name} ({d.percentage}%)</option>
+                           ))
+                        ) : (
+                            <option>No active discounts found</option>
+                        )}
+                    </select>
+                </div>
+                <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                    <button 
+                        type="button" 
+                        onClick={handleApplyClick} 
+                        disabled={isLoading || !selectedDiscountId} 
+                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-brand-orange text-base font-medium text-white hover:bg-brand-orange-hover sm:col-start-2 sm:text-sm disabled:opacity-50"
+                    >
+                        {isLoading ? 'Applying...' : 'Apply Discount'}
+                    </button>
+                     <button 
+                        type="button" 
+                        onClick={handleRemoveDiscount} 
+                        disabled={isLoading}
+                        className="mt-3 w-full inline-flex justify-center rounded-md border border-red-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-red-700 hover:bg-red-50 sm:mt-0 sm:col-start-1 sm:text-sm disabled:opacity-50"
+                    >
+                        {isLoading ? 'Processing...' : 'Remove Discount'}
+                    </button>
+                    <button 
+                        type="button" 
+                        onClick={onClose}
+                        disabled={isLoading}
+                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:col-start-1 sm:text-sm"
+                        style={{gridColumn: '1 / -1', marginTop: '0.75rem'}}
+                    >
+                        Cancel
+                    </button>
                 </div>
             </div>
         </div>
     );
 };
 
+// Komponen Badge Status (Tidak ada perubahan)
 const StatusBadge = ({ status }: { status: string | null }) => { 
     const statusClasses = status === 'Published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
     return (<span className={`px-2.5 py-1 text-xs font-semibold leading-5 rounded-full ${statusClasses}`}>{status || 'Draft'}</span>);
@@ -145,13 +237,17 @@ export default function ManageFontsPage() {
     
     if (fontsResult.error) toast.error(`Failed to fetch fonts: ${fontsResult.error.message}`);
     else setFonts(fontsResult.data as any);
+
     if (categoriesResult.data) setCategories(categoriesResult.data);
     if (partnersResult.data) setPartners(partnersResult.data);
     if (discountsResult.data) setActiveDiscounts(discountsResult.data);
+    
     setIsLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const filteredFonts = useMemo(() => {
     return fonts.filter(font => {
@@ -185,11 +281,17 @@ export default function ManageFontsPage() {
           display_font_italic_url: font.display_font_italic_url
         })
       );
+      
       const results = await Promise.all(deletionPromises);
+      
       results.forEach(result => {
-        if (result.error) toast.error(result.error);
-        else if (result.success) toast.success(result.success);
+        if (result.error) {
+          toast.error(result.error);
+        } else if (result.success) {
+          toast.success(result.success);
+        }
       });
+
       await fetchData();
       setIsDeleteModalOpen(false);
       setFontsToDelete([]);
@@ -197,36 +299,69 @@ export default function ManageFontsPage() {
     });
   };
 
+  // ================= PERBAIKAN PADA FUNGSI INI (2) =================
   const handleCreateDiscount = async (discountData: DiscountInsert) => {
-    setIsLoading(true);
-    const { data, error } = await supabase.from('discounts').insert([discountData]).select();
-    if (error) { toast.error(`Failed to create discount: ${error.message}`); } 
-    else {
-        toast.success('Discount created successfully!');
-        if (data) setActiveDiscounts(prev => [...prev, data[0]]);
-        setIsDiscountModalOpen(false);
-    }
-    setIsLoading(false);
-  };
+    startTransition(async () => {
+        const { error } = await supabase.from('discounts').insert([discountData]);
 
-  const handleApplyDiscount = async (discountId: string) => {
-    if (!discountId) { toast.error("Please select a discount to apply."); return; }
-    if (selectedFonts.length === 0) { toast.error("Please select at least one font."); return; }
-    setIsLoading(true);
-    const recordsToInsert = selectedFonts.map(fontId => ({ font_id: fontId, discount_id: discountId }));
-    const { error: deleteError } = await supabase.from('font_discounts').delete().in('font_id', selectedFonts);
-    if (deleteError) { toast.error(`Failed to remove old discount links: ${deleteError.message}`); setIsLoading(false); return; }
-    const { error } = await supabase.from('font_discounts').insert(recordsToInsert);
-    if (error) { toast.error(`Failed to apply discount: ${error.message}`); } 
-    else {
-        toast.success(`${selectedFonts.length} font(s) are now on sale!`);
-        await fetchData();
-        setIsApplyDiscountModalOpen(false);
-        setSelectedFonts([]);
-    }
-    setIsLoading(false);
+        if (error) {
+            toast.error(`Failed to create discount: ${error.message}`);
+        } else {
+            toast.success(`Discount "${discountData.name}" created successfully!`);
+            setIsDiscountModalOpen(false);
+            await fetchData(); // Refresh data to get the new discount
+        }
+    });
   };
   
+  const handleApplyDiscount = async (discountId: string | null) => {
+    if (selectedFonts.length === 0) {
+      toast.error("No fonts selected.");
+      return;
+    }
+  
+    startTransition(async () => {
+      // Selalu hapus diskon yang ada terlebih dahulu
+      const { error: deleteError } = await supabase
+        .from('font_discounts')
+        .delete()
+        .in('font_id', selectedFonts);
+  
+      if (deleteError) {
+        toast.error(`Error clearing existing discounts: ${deleteError.message}`);
+        setIsApplyDiscountModalOpen(false);
+        return;
+      }
+  
+      // Jika discountId diberikan (bukan null), maka terapkan diskon baru
+      if (discountId) {
+        const recordsToInsert = selectedFonts.map(fontId => ({
+          font_id: fontId,
+          discount_id: discountId,
+        }));
+  
+        const { error: insertError } = await supabase
+          .from('font_discounts')
+          .insert(recordsToInsert);
+  
+        if (insertError) {
+          toast.error(`Failed to apply discount: ${insertError.message}`);
+        } else {
+          toast.success(`Discount successfully applied to ${selectedFonts.length} font(s).`);
+        }
+      } else {
+        // Jika discountId adalah null, berarti tujuannya hanya untuk menghapus
+        toast.success(`Discounts removed from ${selectedFonts.length} font(s).`);
+      }
+      
+      // Muat ulang data, tutup modal, dan kosongkan pilihan
+      await fetchData();
+      setIsApplyDiscountModalOpen(false);
+      setSelectedFonts([]);
+    });
+  };
+  // ================= AKHIR DARI PERBAIKAN =================
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) setSelectedFonts(paginatedFonts.map(f => f.id));
     else setSelectedFonts([]);
@@ -238,6 +373,7 @@ export default function ManageFontsPage() {
   };
   
   const isAllOnPageSelected = paginatedFonts.length > 0 && paginatedFonts.every(f => selectedFonts.includes(f.id));
+  
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -245,9 +381,29 @@ export default function ManageFontsPage() {
 
   return (
     <div>
-        <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} fontsToDelete={fontsToDelete} isLoading={isPending}/>
-        <CreateDiscountModal isOpen={isDiscountModalOpen} onClose={() => setIsDiscountModalOpen(false)} onSave={handleCreateDiscount} isLoading={isPending}/>
-        <ApplyDiscountModal isOpen={isApplyDiscountModalOpen} onClose={() => setIsApplyDiscountModalOpen(false)} onApply={handleApplyDiscount} discounts={activeDiscounts} isLoading={isPending} />
+        <DeleteConfirmationModal 
+            isOpen={isDeleteModalOpen}
+            onClose={() => setIsDeleteModalOpen(false)}
+            onConfirm={confirmDelete}
+            fontsToDelete={fontsToDelete}
+            isLoading={isPending}
+        />
+        
+        <CreateDiscountModal
+            isOpen={isDiscountModalOpen}
+            onClose={() => setIsDiscountModalOpen(false)}
+            onSave={handleCreateDiscount}
+            isLoading={isPending}
+        />
+        
+        <ApplyDiscountModal
+            isOpen={isApplyDiscountModalOpen}
+            onClose={() => setIsApplyDiscountModalOpen(false)}
+            onApply={handleApplyDiscount}
+            discounts={activeDiscounts}
+            isLoading={isPending}
+            selectedFontCount={selectedFonts.length}
+        />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
@@ -256,8 +412,15 @@ export default function ManageFontsPage() {
           <p className="text-gray-500 mt-1">Add, edit, and manage all your font products.</p>
         </div>
         <div className="flex gap-2">
-           <button onClick={() => setIsDiscountModalOpen(true)} className="bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Create Discount</button>
-           <Link href="/admin/fonts/new"><span className="bg-brand-orange text-white font-medium py-2 px-4 rounded-lg hover:bg-brand-orange-hover transition-colors flex items-center gap-2"><PlusCircle className="w-5 h-5" /> Add New Font</span></Link>
+           <button onClick={() => setIsDiscountModalOpen(true)} className="bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+            Create Discount
+          </button>
+          <Link href="/admin/fonts/new">
+            <span className="bg-brand-orange text-white font-medium py-2 px-4 rounded-lg hover:bg-brand-orange-hover transition-colors flex items-center gap-2">
+              <PlusCircle className="w-5 h-5" />
+              Add New Font
+            </span>
+          </Link>
         </div>
       </div>
 
@@ -286,7 +449,6 @@ export default function ManageFontsPage() {
         {selectedFonts.length > 0 && (
           <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
             <span className="text-sm font-medium text-gray-600">{selectedFonts.length} item(s) selected</span>
-            {/* DIPERBARUI: Menambahkan kembali div pembungkus untuk tombol-tombol aksi */}
             <div className="flex gap-2">
               <button onClick={() => setIsApplyDiscountModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-100 rounded-md hover:bg-green-200">
                   <Tag className="w-4 h-4" /> Apply Discount

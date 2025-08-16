@@ -1,62 +1,20 @@
 // src/app/(admin)/admin/users/[id]/page.tsx
-import { supabase } from '@/lib/supabaseClient';
 import { notFound } from 'next/navigation';
-import { Database } from '@/lib/database.types';
 import Image from 'next/image';
 import Link from 'next/link';
 import { DownloadIcon } from '@/components/icons';
 import ResetPasswordForm from '@/components/admin/ResetPasswordForm';
+import { getUserDetails, UserDetail } from '@/app/actions/userActions'; // Import the new server action and type
 
-// Mengambil tipe dasar dari database.types.ts
-type Order = Database['public']['Tables']['orders']['Row'];
-type Font = Database['public']['Tables']['fonts']['Row'];
+export default async function UserDetailPage({ params }: { params: { id: string } }) {
+  const { data: user, error } = await getUserDetails(params.id);
 
-// DIPERBARUI: Mendefinisikan tipe Profile secara manual agar 100% cocok
-// dengan struktur tabel Anda yang sebenarnya, termasuk kolom baru.
-type Profile = {
-  id: string;
-  full_name: string | null;
-  role: string | null;
-  created_at: string | null;
-  email: string | null;
-};
-
-type OrderWithFont = Order & {
-  fonts: Pick<Font, 'name' | 'main_image_url' | 'slug'> | null;
-};
-
-type UserDetail = Profile & {
-  orders: OrderWithFont[];
-};
-
-async function getUserDetails(userId: string): Promise<UserDetail | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select(`
-      *,
-      orders (
-        *,
-        fonts ( name, main_image_url, slug )
-      )
-    `)
-    .eq('id', userId)
-    .single();
-
-  if (error) {
+  if (error || !user) {
     console.error("Error fetching user details:", error);
     notFound();
   }
-  return data as any as UserDetail;
-}
-
-export default async function UserDetailPage({ params }: { params: { id: string } }) {
-  const user = await getUserDetails(params.id);
-
-  if (!user) {
-    notFound();
-  }
   
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };

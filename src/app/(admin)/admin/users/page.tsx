@@ -1,25 +1,15 @@
 // src/app/(admin)/admin/users/page.tsx
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import { Database } from '@/lib/database.types';
+import { useState, useEffect, useMemo, useTransition } from 'react';
+import { getUsersWithDetails, UserWithProfile } from '@/app/actions/userActions'; // Updated import
 import { Search, UserCircle, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
-import Link from 'next/link'; // BARU: Menambahkan import Link
-
-// DIPERBARUI: Menambahkan 'email' dan 'created_at' ke tipe Profile
-type Profile = {
-  id: string;
-  full_name: string | null;
-  role: string | null;
-  email: string | null;
-  created_at: string | null;
-};
+import Link from 'next/link';
 
 const ITEMS_PER_PAGE = 15;
 
-// Komponen Badge Peran (Role)
+// Komponen Badge Peran (Role) - Tidak ada perubahan
 const RoleBadge = ({ role }: { role: string | null }) => {
   const isAdmin = role === 'admin';
   const badgeClasses = isAdmin ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700';
@@ -32,7 +22,7 @@ const RoleBadge = ({ role }: { role: string | null }) => {
   );
 };
 
-// Komponen Paginasi
+// Komponen Paginasi - Tidak ada perubahan
 interface PaginationProps {
     currentPage: number;
     totalPages: number;
@@ -51,39 +41,31 @@ const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) 
 
 
 export default function ManageUsersPage() {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profiles, setProfiles] = useState<UserWithProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    const fetchProfiles = async () => {
+    startTransition(async () => {
       setIsLoading(true);
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-
-      let query = supabase.from('profiles').select('*', { count: 'exact' });
-      if (searchTerm) {
-        query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
-      }
-      const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, to);
+      const { data, count, error } = await getUsersWithDetails(currentPage, ITEMS_PER_PAGE, searchTerm);
 
       if (error) {
-        toast.error('Failed to fetch users: ' + error.message);
+        toast.error('Failed to fetch users: ' + error);
       } else {
         setProfiles(data || []);
         setTotalUsers(count || 0);
       }
       setIsLoading(false);
-    };
-    const debounceFetch = setTimeout(() => { fetchProfiles(); }, 300);
-    return () => clearTimeout(debounceFetch);
+    });
   }, [currentPage, searchTerm]);
 
   const totalPages = Math.ceil(totalUsers / ITEMS_PER_PAGE);
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };

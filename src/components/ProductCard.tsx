@@ -1,29 +1,51 @@
+// src/components/ProductCard.tsx
 import Image from 'next/image';
 import Link from 'next/link';
 import { Tag } from 'lucide-react';
 import { Database } from '@/lib/database.types';
 
-// DIPERBARUI: Menyesuaikan tipe data agar bisa menerima informasi diskon dari parent
+// Define the types needed for the component
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type Font = Database['public']['Tables']['fonts']['Row'];
-type FontWithDiscount = Font & {
-  font_discounts: { discounts: Pick<Discount, 'name' | 'percentage'> | null }[];
+type FontWithDetailsForCard = Font & {
+  font_discounts: { discounts: Discount | null }[];
 };
 
 type ProductCardProps = {
-  font: FontWithDiscount;
+  font: FontWithDetailsForCard;
+};
+
+// Helper function to find the currently active discount
+const getActiveDiscount = (fontDiscounts: FontWithDetailsForCard['font_discounts'] | null): Discount | null => {
+    if (!fontDiscounts || fontDiscounts.length === 0) {
+        return null;
+    }
+    const now = new Date();
+    // Find the first valid and active discount
+    const activeDiscountRelation = fontDiscounts.find(fd => {
+        const discount = fd.discounts;
+        if (discount && discount.is_active) {
+            const startDate = discount.start_date ? new Date(discount.start_date) : null;
+            const endDate = discount.end_date ? new Date(discount.end_date) : null;
+            
+            const isStarted = !startDate || now >= startDate;
+            const isNotExpired = !endDate || now <= endDate;
+            
+            return isStarted && isNotExpired;
+        }
+        return false;
+    });
+    return activeDiscountRelation ? activeDiscountRelation.discounts : null;
 };
 
 const ProductCard = ({ font }: ProductCardProps) => {
-  // KONFIRMASI: Logika untuk memotong deskripsi menjadi satu kalimat (sudah ada)
   const truncateDescription = (text: string | null) => {
     if (!text) return 'No description available.';
     const firstSentence = text.split('.')[0];
     return `${firstSentence}.`;
   };
 
-  // Logika untuk memeriksa dan menghitung harga diskon
-  const activeDiscount = font.font_discounts?.[0]?.discounts;
+  const activeDiscount = getActiveDiscount(font.font_discounts);
   const originalPrice = font.price_desktop || 0;
   let displayPrice = originalPrice;
 
@@ -64,7 +86,6 @@ const ProductCard = ({ font }: ProductCardProps) => {
             View Detail
           </span>
         </Link>
-        {/* DIPERBARUI: Menambahkan kelas text-brand-orange untuk harga diskon */}
         <div className="text-lg font-medium text-brand-black text-right">
           {activeDiscount ? (
             <div>

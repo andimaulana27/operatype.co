@@ -1,23 +1,28 @@
+// src/app/(main)/page.tsx
 import Image from 'next/image';
 import Link from 'next/link';
 import ProductCard from '@/components/ProductCard';
 import SectionTitle from '@/components/SectionTitle';
 import HeroCarousel from '@/components/HeroCarousel';
 import { supabase } from '@/lib/supabaseClient';
-import { Database } from '@/lib/database.types'; // BARU: Impor tipe untuk konsistensi
+import { Database } from '@/lib/database.types';
 
-// BARU: Mendefinisikan tipe data yang akan diterima oleh ProductCard
+// PERBAIKAN: Impor tipe Discount secara langsung.
+type Discount = Database['public']['Tables']['discounts']['Row'];
+
+// PERBAIKAN: Tipe FontForCard disesuaikan agar cocok dengan props di ProductCard.
 type FontForCard = Database['public']['Tables']['fonts']['Row'] & {
-  font_discounts: { discounts: Pick<Database['public']['Tables']['discounts']['Row'], 'name' | 'percentage'> | null }[];
+  font_discounts: { discounts: Discount | null }[];
 };
 
-// --- FUNGSI PENGAMBILAN DATA (DIPERBARUI) ---
+// --- Fungsi Pengambilan Data (Query sudah benar) ---
 async function getFeaturedFonts(): Promise<FontForCard[]> {
   const { data, error } = await supabase
     .from('fonts')
-    // DIPERBARUI: Query sekarang mengambil data diskon yang terhubung
-    .select('*, font_discounts(discounts(name, percentage))') 
+    .select('*, font_discounts(discounts(*))') // Mengambil semua detail diskon
     .eq('is_bestseller', false)
+    .is('partner_id', null)
+    .eq('status', 'Published')
     .order('created_at', { ascending: false })
     .limit(8);
 
@@ -31,9 +36,10 @@ async function getFeaturedFonts(): Promise<FontForCard[]> {
 async function getCuratedFonts(): Promise<FontForCard[]> {
   const { data, error } = await supabase
     .from('fonts')
-    // DIPERBARUI: Query sekarang mengambil data diskon yang terhubung
-    .select('*, font_discounts(discounts(name, percentage))')
+    .select('*, font_discounts(discounts(*))') // Mengambil semua detail diskon
     .eq('is_bestseller', true)
+    .is('partner_id', null)
+    .eq('status', 'Published')
     .limit(4);
 
   if (error) {
@@ -43,7 +49,7 @@ async function getCuratedFonts(): Promise<FontForCard[]> {
   return data as FontForCard[];
 }
 
-// --- DATA STATIS (Tetap sama) ---
+// --- DATA STATIS (Tidak ada perubahan) ---
 const styleImages = [
     '/images/previews/font-style-preview-1.jpg',
     '/images/previews/font-style-preview-2.jpg',
@@ -67,7 +73,7 @@ export default async function HomePage() {
       <section className="bg-brand-white text-center pt-20 pb-12">
         <div className="container mx-auto px-4">
           <p className="text-sm font-medium text-brand-orange tracking-widest">THE ART OF SCRIPT FONTS</p>
-          <h1 className="text-6xl font-medium text-brand-black mt-4">Elevate Your Designs</h1>
+          <h1 className="text-5xl font-medium text-brand-black mt-4">Elevate Your Designs</h1>
           <p className="text-lg font-light text-brand-gray-1 max-w-2xl mx-auto mt-6">
             A curated library of high-quality, versatile script fonts complete with full character sets and commercial licenses, ready for any project.
           </p>
@@ -89,7 +95,6 @@ export default async function HomePage() {
         <div className="container mx-auto px-4">
           <SectionTitle title="Our Featured Collection" subtitle="A curated selection of our most popular and newest script fonts, handpicked for you." />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Sekarang ProductCard akan menerima data font yang sudah termasuk info diskon */}
             {featuredFonts.map(font => <ProductCard key={font.id} font={font} />)}
           </div>
           <div className="text-center mt-16">
