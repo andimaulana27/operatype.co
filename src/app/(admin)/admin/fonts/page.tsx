@@ -7,9 +7,9 @@ import Image from 'next/image';
 import { Database } from '@/lib/database.types';
 import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle, Tag } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { deleteFontAction } from '@/app/actions/fontActions'; // BARU: Impor server action
+import { deleteFontAction } from '@/app/actions/fontActions';
 
-// Tipe data
+// --- Tipe Data ---
 type FontRow = Database['public']['Tables']['fonts']['Row'];
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
@@ -24,7 +24,8 @@ type FontWithDetails = FontRow & {
 
 const ITEMS_PER_PAGE = 10;
 
-// Komponen Modal Konfirmasi Hapus
+// --- Komponen-komponen Modal & Badge ---
+
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, fontsToDelete, isLoading }: { isOpen: boolean, onClose: () => void, onConfirm: () => void, fontsToDelete: FontWithDetails[], isLoading: boolean }) => {
     if (!isOpen) return null;
     const fontCount = fontsToDelete.length;
@@ -34,7 +35,7 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, fontsToDelete, is
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
                 <div className="flex items-start">
                     <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                        <AlertTriangle className="h-6 w-6 text-red-600" aria-hidden="true" />
+                        <AlertTriangle className="h-6 w-6 text-red-600" />
                     </div>
                     <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                         <h3 className="text-lg leading-6 font-medium text-gray-900">Delete Font(s)</h3>
@@ -50,21 +51,67 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, fontsToDelete, is
     );
 };
 
-// Komponen Modal Buat Diskon
 const CreateDiscountModal = ({ isOpen, onClose, onSave, isLoading }: { isOpen: boolean, onClose: () => void, onSave: (data: DiscountInsert) => void, isLoading: boolean }) => {
-    // Implementasi lengkap modal ini...
+    const [name, setName] = useState('');
+    const [percentage, setPercentage] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+
+    const handleSubmit = () => {
+        if (!name || !percentage || !startDate || !endDate) { toast.error('Please fill all fields.'); return; }
+        const percValue = parseInt(percentage);
+        if (percValue <= 0 || percValue > 100) { toast.error('Percentage must be between 1 and 100.'); return; }
+        if (new Date(startDate) >= new Date(endDate)) { toast.error('End date must be after the start date.'); return; }
+        onSave({ name, percentage: percValue, start_date: new Date(startDate).toISOString(), end_date: new Date(endDate).toISOString(), is_active: true });
+    };
     if (!isOpen) return null;
-    return <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4"><div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">...</div></div>;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+                <h3 className="text-xl leading-6 font-bold text-gray-900 mb-4">Create New Discount</h3>
+                <div className="space-y-4">
+                    <div><label className="block text-sm font-medium text-gray-700">Discount Name</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder='e.g., Summer Sale 2025' className="mt-1 block w-full p-2 border rounded-md" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700">Percentage (%)</label><input type="number" value={percentage} onChange={(e) => setPercentage(e.target.value)} placeholder='e.g., 20' className="mt-1 block w-full p-2 border rounded-md" min="1" max="100"/></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="block text-sm font-medium text-gray-700">Start Date</label><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 block w-full p-2 border rounded-md" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700">End Date</label><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 block w-full p-2 border rounded-md" /></div>
+                    </div>
+                </div>
+                <div className="mt-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" onClick={handleSubmit} disabled={isLoading} className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50">{isLoading ? 'Saving...' : 'Save Discount'}</button>
+                    <button type="button" onClick={onClose} disabled={isLoading} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
-// Komponen Modal Terapkan Diskon
 const ApplyDiscountModal = ({ isOpen, onClose, onApply, discounts, isLoading }: { isOpen: boolean, onClose: () => void, onApply: (id: string) => void, discounts: Discount[], isLoading: boolean }) => {
-    // Implementasi lengkap modal ini...
+    const [selectedDiscountId, setSelectedDiscountId] = useState<string>('');
+    useEffect(() => { if (isOpen && discounts.length > 0) setSelectedDiscountId(discounts[0].id); }, [isOpen, discounts]);
+
     if (!isOpen) return null;
-    return <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4"><div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">...</div></div>;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+                <h3 className="text-xl leading-6 font-bold text-gray-900 mb-4">Apply Discount to Selected Fonts</h3>
+                {discounts.length > 0 ? (
+                    <div>
+                        <label htmlFor="discount-select" className="block text-sm font-medium text-gray-700">Select an active discount:</label>
+                        <select id="discount-select" value={selectedDiscountId} onChange={(e) => setSelectedDiscountId(e.target.value)} className="mt-1 block w-full p-2 border rounded-md">
+                            {discounts.map((d) => (<option key={d.id} value={d.id}>{d.name} ({d.percentage}%)</option>))}
+                        </select>
+                    </div>
+                ) : <p className="text-gray-600">No active discounts found. Please create one first.</p>}
+                <div className="mt-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" onClick={() => onApply(selectedDiscountId)} disabled={isLoading || discounts.length === 0} className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50">{isLoading ? 'Applying...' : 'Apply Discount'}</button>
+                    <button type="button" onClick={onClose} disabled={isLoading} className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">Cancel</button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
-// Komponen Badge Status
 const StatusBadge = ({ status }: { status: string | null }) => { 
     const statusClasses = status === 'Published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
     return (<span className={`px-2.5 py-1 text-xs font-semibold leading-5 rounded-full ${statusClasses}`}>{status || 'Draft'}</span>);
@@ -85,8 +132,6 @@ export default function ManageFontsPage() {
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [isApplyDiscountModalOpen, setIsApplyDiscountModalOpen] = useState(false);
   const [activeDiscounts, setActiveDiscounts] = useState<Discount[]>([]);
-
-  // BARU: Gunakan useTransition untuk loading state yang tidak memblokir UI
   const [isPending, startTransition] = useTransition();
 
   const fetchData = async () => {
@@ -100,17 +145,13 @@ export default function ManageFontsPage() {
     
     if (fontsResult.error) toast.error(`Failed to fetch fonts: ${fontsResult.error.message}`);
     else setFonts(fontsResult.data as any);
-
     if (categoriesResult.data) setCategories(categoriesResult.data);
     if (partnersResult.data) setPartners(partnersResult.data);
     if (discountsResult.data) setActiveDiscounts(discountsResult.data);
-    
     setIsLoading(false);
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const filteredFonts = useMemo(() => {
     return fonts.filter(font => {
@@ -133,11 +174,9 @@ export default function ManageFontsPage() {
     setIsDeleteModalOpen(true);
   };
   
-  // DIPERBARUI: Fungsi confirmDelete sekarang memanggil Server Action
   const confirmDelete = () => {
     startTransition(async () => {
       const deletionPromises = fontsToDelete.map(font => 
-        // Memanggil fungsi dari fontActions.ts
         deleteFontAction(font.id, {
           main_image_url: font.main_image_url,
           gallery_image_urls: font.gallery_image_urls,
@@ -146,18 +185,11 @@ export default function ManageFontsPage() {
           display_font_italic_url: font.display_font_italic_url
         })
       );
-      
       const results = await Promise.all(deletionPromises);
-      
       results.forEach(result => {
-        if (result.error) {
-          toast.error(result.error);
-        } else if (result.success) {
-          toast.success(result.success);
-        }
+        if (result.error) toast.error(result.error);
+        else if (result.success) toast.success(result.success);
       });
-
-      // Muat ulang data setelah selesai
       await fetchData();
       setIsDeleteModalOpen(false);
       setFontsToDelete([]);
@@ -165,16 +197,46 @@ export default function ManageFontsPage() {
     });
   };
 
-  const handleCreateDiscount = async (discountData: DiscountInsert) => { /* ... */ };
-  const handleApplyDiscount = async (discountId: string) => { /* ... */ };
+  const handleCreateDiscount = async (discountData: DiscountInsert) => {
+    setIsLoading(true);
+    const { data, error } = await supabase.from('discounts').insert([discountData]).select();
+    if (error) { toast.error(`Failed to create discount: ${error.message}`); } 
+    else {
+        toast.success('Discount created successfully!');
+        if (data) setActiveDiscounts(prev => [...prev, data[0]]);
+        setIsDiscountModalOpen(false);
+    }
+    setIsLoading(false);
+  };
+
+  const handleApplyDiscount = async (discountId: string) => {
+    if (!discountId) { toast.error("Please select a discount to apply."); return; }
+    if (selectedFonts.length === 0) { toast.error("Please select at least one font."); return; }
+    setIsLoading(true);
+    const recordsToInsert = selectedFonts.map(fontId => ({ font_id: fontId, discount_id: discountId }));
+    const { error: deleteError } = await supabase.from('font_discounts').delete().in('font_id', selectedFonts);
+    if (deleteError) { toast.error(`Failed to remove old discount links: ${deleteError.message}`); setIsLoading(false); return; }
+    const { error } = await supabase.from('font_discounts').insert(recordsToInsert);
+    if (error) { toast.error(`Failed to apply discount: ${error.message}`); } 
+    else {
+        toast.success(`${selectedFonts.length} font(s) are now on sale!`);
+        await fetchData();
+        setIsApplyDiscountModalOpen(false);
+        setSelectedFonts([]);
+    }
+    setIsLoading(false);
+  };
+  
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) setSelectedFonts(paginatedFonts.map(f => f.id));
     else setSelectedFonts([]);
   };
+
   const handleSelectOne = (id: string, isChecked: boolean) => {
     if (isChecked) setSelectedFonts(prev => [...prev, id]);
     else setSelectedFonts(prev => prev.filter(fontId => fontId !== id));
   };
+  
   const isAllOnPageSelected = paginatedFonts.length > 0 && paginatedFonts.every(f => selectedFonts.includes(f.id));
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -183,28 +245,9 @@ export default function ManageFontsPage() {
 
   return (
     <div>
-        <DeleteConfirmationModal 
-            isOpen={isDeleteModalOpen}
-            onClose={() => setIsDeleteModalOpen(false)}
-            onConfirm={confirmDelete}
-            fontsToDelete={fontsToDelete}
-            isLoading={isPending} // Menggunakan isPending untuk loading state
-        />
-        
-        <CreateDiscountModal
-            isOpen={isDiscountModalOpen}
-            onClose={() => setIsDiscountModalOpen(false)}
-            onSave={handleCreateDiscount}
-            isLoading={isLoading}
-        />
-        
-        <ApplyDiscountModal
-            isOpen={isApplyDiscountModalOpen}
-            onClose={() => setIsApplyDiscountModalOpen(false)}
-            onApply={handleApplyDiscount}
-            discounts={activeDiscounts}
-            isLoading={isLoading}
-        />
+        <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} fontsToDelete={fontsToDelete} isLoading={isPending}/>
+        <CreateDiscountModal isOpen={isDiscountModalOpen} onClose={() => setIsDiscountModalOpen(false)} onSave={handleCreateDiscount} isLoading={isPending}/>
+        <ApplyDiscountModal isOpen={isApplyDiscountModalOpen} onClose={() => setIsApplyDiscountModalOpen(false)} onApply={handleApplyDiscount} discounts={activeDiscounts} isLoading={isPending} />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
@@ -213,15 +256,8 @@ export default function ManageFontsPage() {
           <p className="text-gray-500 mt-1">Add, edit, and manage all your font products.</p>
         </div>
         <div className="flex gap-2">
-           <button onClick={() => setIsDiscountModalOpen(true)} className="bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-            Create Discount
-          </button>
-          <Link href="/admin/fonts/new">
-            <span className="bg-brand-orange text-white font-medium py-2 px-4 rounded-lg hover:bg-brand-orange-hover transition-colors flex items-center gap-2">
-              <PlusCircle className="w-5 h-5" />
-              Add New Font
-            </span>
-          </Link>
+           <button onClick={() => setIsDiscountModalOpen(true)} className="bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Create Discount</button>
+           <Link href="/admin/fonts/new"><span className="bg-brand-orange text-white font-medium py-2 px-4 rounded-lg hover:bg-brand-orange-hover transition-colors flex items-center gap-2"><PlusCircle className="w-5 h-5" /> Add New Font</span></Link>
         </div>
       </div>
 
@@ -250,6 +286,7 @@ export default function ManageFontsPage() {
         {selectedFonts.length > 0 && (
           <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
             <span className="text-sm font-medium text-gray-600">{selectedFonts.length} item(s) selected</span>
+            {/* DIPERBARUI: Menambahkan kembali div pembungkus untuk tombol-tombol aksi */}
             <div className="flex gap-2">
               <button onClick={() => setIsApplyDiscountModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-100 rounded-md hover:bg-green-200">
                   <Tag className="w-4 h-4" /> Apply Discount
