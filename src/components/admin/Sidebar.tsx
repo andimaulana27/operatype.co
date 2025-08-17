@@ -10,6 +10,8 @@ import Image from 'next/image';
 const navLinks = [
   { name: 'Dashboard', href: '/admin/dashboard' },
   { name: 'Manage Fonts', href: '/admin/fonts' },
+  // BARU: Menambahkan link untuk halaman Manage Homepage
+  { name: 'Manage Homepage', href: '/admin/homepage' },
   { name: 'Manage Partners', href: '/admin/partners' },
   { name: 'Manage Orders', href: '/admin/orders' },
   { name: 'Manage Users', href: '/admin/users' },
@@ -20,7 +22,6 @@ export default function Sidebar() {
   const { user, profile, logout } = useAuth();
 
   return (
-    // PERBAIKAN: Warna latar diubah menjadi putih
     <aside className="w-64 bg-white text-brand-black flex flex-col">
       <div className="p-6 border-b border-brand-gray-2">
         <Link href="/">
@@ -41,7 +42,6 @@ export default function Sidebar() {
               <li key={link.name}>
                 <Link
                   href={link.href}
-                  // PERBAIKAN: Warna teks dan hover disesuaikan
                   className={`block px-4 py-2 my-1 rounded-md transition-colors font-medium ${
                     isActive ? 'bg-brand-orange text-white' : 'hover:bg-brand-gray-2'
                   }`}

@@ -11,7 +11,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // PINDAHKAN KEMBALI KE DALAM BLOK INI
+ 
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb',

@@ -1,11 +1,9 @@
-// src/app/actions/fontActions.ts
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { Database } from '@/lib/database.types';
 
-// Mendefinisikan tipe data untuk konsistensi di seluruh aplikasi
 type FontFormData = Partial<Database['public']['Tables']['fonts']['Row']>;
 type FileUrls = {
   main_image_url: string | null;
@@ -15,7 +13,6 @@ type FileUrls = {
   display_font_italic_url: string | null;
 };
 
-// Fungsi untuk menghapus font
 export async function deleteFontAction(fontId: string, fileUrls: any) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,9 +55,15 @@ export async function deleteFontAction(fontId: string, fileUrls: any) {
     }
 
     await supabaseAdmin.from('font_discounts').delete().eq('font_id', fontId);
+    const { data: fontData } = await supabaseAdmin.from('fonts').select('slug').eq('id', fontId).single();
     const { error: dbError } = await supabaseAdmin.from('fonts').delete().eq('id', fontId);
     if (dbError) throw dbError;
     
+    revalidatePath('/');
+    revalidatePath('/fonts');
+    if (fontData?.slug) {
+        revalidatePath(`/fonts/${fontData.slug}`);
+    }
     revalidatePath('/admin/fonts');
     return { success: 'Font and associated files deleted successfully!' };
   } catch (error: any) {
@@ -68,7 +71,6 @@ export async function deleteFontAction(fontId: string, fileUrls: any) {
   }
 }
 
-// BARU: Fungsi untuk menambah font baru
 export async function addFontAction(formData: FontFormData, fileUrls: FileUrls) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -78,7 +80,6 @@ export async function addFontAction(formData: FontFormData, fileUrls: FileUrls) 
   try {
     const slug = formData.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || '';
     
-    // Menggabungkan data form dan URL file dengan tipe yang benar
     const finalData = {
       ...formData,
       slug,
@@ -92,18 +93,148 @@ export async function addFontAction(formData: FontFormData, fileUrls: FileUrls) 
       display_font_italic_url: fileUrls.display_font_italic_url,
     };
 
-    const { error } = await supabaseAdmin.from('fonts').insert([finalData]);
+    const { data: insertedData, error } = await supabaseAdmin.from('fonts').insert([finalData]).select().single();
     if (error) {
-        // Memberikan pesan error yang lebih spesifik jika font sudah ada
-        if (error.code === '23505') { // Kode untuk unique constraint violation
+        if (error.code === '23505') {
             throw new Error('A font with this name or slug already exists.');
         }
         throw error;
     }
     
+    revalidatePath('/');
+    revalidatePath('/fonts');
+    revalidatePath(`/fonts/${insertedData.slug}`);
     revalidatePath('/admin/fonts');
     return { success: 'Font added successfully!' };
   } catch (error: any) {
     return { error: `Failed to add font: ${error.message}` };
+  }
+}
+
+export async function updateFontAction(fontId: string, updateData: any) {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    const { error } = await supabaseAdmin
+      .from('fonts')
+      .update(updateData)
+      .eq('id', fontId);
+
+    if (error) {
+      if (error.message.includes("column") && error.message.includes("does not exist")) {
+        throw new Error(`Database Error: A column in the data does not exist in the 'fonts' table.`);
+      }
+      throw error;
+    }
+
+    revalidatePath('/');
+    revalidatePath('/fonts');
+    if (updateData.slug) {
+      revalidatePath(`/fonts/${updateData.slug}`);
+    }
+    revalidatePath('/admin/fonts');
+
+    return { success: 'Font updated successfully!' };
+  } catch (error: any) {
+    return { error: `Update failed: ${error.message}` };
+  }
+}
+
+export async function updateFontStatusAction(
+  fontId: string, 
+  updates: { is_bestseller?: boolean }
+) {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    const { error } = await supabaseAdmin.from('fonts').update(updates).eq('id', fontId);
+    if (error) throw error;
+
+    revalidatePath('/admin/fonts');
+    revalidatePath('/');
+    
+    return { success: 'Font status updated successfully.' };
+
+  } catch (error: any) {
+    return { error: `Database error: ${error.message}` };
+  }
+}
+
+export async function updateHomepageLayoutAction(
+  featuredIds: string[],
+  curatedIds: string[]
+) {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    await supabaseAdmin
+      .from('fonts')
+      .update({ homepage_section: 'none', homepage_order: 0 })
+      .in('homepage_section', ['featured', 'curated']);
+
+    const featuredUpdates = featuredIds.map((id, index) => 
+      supabaseAdmin
+        .from('fonts')
+        .update({ homepage_section: 'featured', homepage_order: index })
+        .eq('id', id)
+    );
+
+    const curatedUpdates = curatedIds.map((id, index) =>
+      supabaseAdmin
+        .from('fonts')
+        .update({ homepage_section: 'curated', homepage_order: index })
+        .eq('id', id)
+    );
+
+    const allPromises = [...featuredUpdates, ...curatedUpdates];
+    const results = await Promise.all(allPromises);
+
+    const firstError = results.find(res => res.error);
+    if (firstError) throw firstError.error;
+
+    revalidatePath('/');
+
+    return { success: 'Homepage layout saved successfully!' };
+  } catch (error: any) {
+    console.error('Error saving homepage layout:', error);
+    return { error: `Failed to save layout: ${error.message}` };
+  }
+}
+
+export async function deleteDiscountAction(discountId: string) {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    await supabaseAdmin
+      .from('font_discounts')
+      .delete()
+      .eq('discount_id', discountId);
+
+    const { error: discountError } = await supabaseAdmin
+      .from('discounts')
+      .delete()
+      .eq('id', discountId);
+
+    if (discountError) {
+      throw new Error(`Failed to delete discount: ${discountError.message}`);
+    }
+
+    revalidatePath('/admin/fonts');
+
+    return { success: 'Discount deleted successfully.' };
+  } catch (error: any) {
+    return { error: error.message };
   }
 }

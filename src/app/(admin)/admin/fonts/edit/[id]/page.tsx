@@ -1,7 +1,6 @@
-// src/app/(admin)/admin/fonts/edit/[id]/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useTransition } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter, useParams } from 'next/navigation';
 import { Database } from '@/lib/database.types';
@@ -11,18 +10,17 @@ import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { PhotoIcon } from '@/components/icons';
 import { Trash2 } from 'lucide-react';
+import { updateFontAction } from '@/app/actions/fontActions';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
-type Font = Database['public']['Tables']['fonts']['Row'];
 
-// Tipe ini disamakan dengan halaman 'add new font'
 type FontFormData = {
   name: string;
   slug: string;
   description: string;
   is_bestseller: boolean;
-  tags: string[]; // DIPASTIKAN MENGGUNAKAN 'tags' (jamak)
+  tags: string[];
   price_desktop: number;
   price_business: number;
   price_corporate: number;
@@ -36,7 +34,6 @@ type FontFormData = {
   partner_id: string | null;
 };
 
-// Komponen TagInput
 const TagInput = ({ label, tags, setTags }: { label: string, tags: string[], setTags: (tags: string[]) => void }) => {
   const [inputValue, setInputValue] = useState('');
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -50,16 +47,16 @@ const TagInput = ({ label, tags, setTags }: { label: string, tags: string[], set
     }
   };
   const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tags => tags !== tagToRemove));
+    setTags(tags.filter(tag => tag !== tagToRemove));
   };
   return (
     <div>
        <label className="font-medium">{label}</label>
       <div className="flex flex-wrap gap-2 mb-2 mt-1 border rounded-md p-2">
-        {tags.map(tags => (
-          <span key={tags} className="bg-gray-200 text-gray-700 text-sm font-medium px-2 py-1 rounded-full flex items-center">
-            {tags}
-            <button type="button" onClick={() => removeTag(tags)} className="ml-2 text-red-500 hover:text-red-700">&times;</button>
+        {tags.map(tag => (
+          <span key={tag} className="bg-gray-200 text-gray-700 text-sm font-medium px-2 py-1 rounded-full flex items-center">
+            {tag}
+            <button type="button" onClick={() => removeTag(tag)} className="ml-2 text-red-500 hover:text-red-700">&times;</button>
           </span>
         ))}
       </div>
@@ -80,9 +77,7 @@ export default function EditFontPage() {
     displayFontRegular?: File; 
     displayFontItalic?: File;
     downloadableFile?: File 
-  }>({
-    galleryImages: []
-  });
+  }>({ galleryImages: [] });
   
   const [existingImageUrls, setExistingImageUrls] = useState({
     main: '',
@@ -92,31 +87,26 @@ export default function EditFontPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpdating, startTransition] = useTransition();
 
   useEffect(() => {
     if (!fontId) return;
 
     const fetchFontData = async () => {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('fonts')
-        .select(`*`)
-        .eq('id', fontId)
-        .single();
+      const { data, error } = await supabase.from('fonts').select(`*`).eq('id', fontId).single();
 
       if (error || !data) {
         toast.error('Failed to fetch font data: ' + error?.message);
         router.push('/admin/fonts');
         return;
       }
-
       setFormData({
         name: data.name,
         slug: data.slug,
         description: data.description,
         is_bestseller: data.is_bestseller,
-        tags: data.tags || [], // DIPERBARUI: Menggunakan 'tags' (jamak)
+        tags: data.tags || [],
         price_desktop: data.price_desktop,
         price_business: data.price_business,
         price_corporate: data.price_corporate,
@@ -129,11 +119,7 @@ export default function EditFontPage() {
         category_id: data.category_id,
         partner_id: data.partner_id,
       });
-      
-      setExistingImageUrls({
-        main: data.main_image_url || '',
-        gallery: data.gallery_image_urls || []
-      });
+      setExistingImageUrls({ main: data.main_image_url || '', gallery: data.gallery_image_urls || [] });
       setIsLoading(false);
     };
 
@@ -143,7 +129,6 @@ export default function EditFontPage() {
         if (categoriesData) setCategories(categoriesData);
         if (partnersData) setPartners(partnersData);
     };
-
     fetchFontData();
     fetchDropdownData();
   }, [fontId, router]);
@@ -200,73 +185,56 @@ export default function EditFontPage() {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsUpdating(true);
     
-    try {
-      const updateData: any = { ...formData };
+    startTransition(async () => {
+      try {
+        const updateData: any = { ...formData };
 
-      const uploadAndGetUrl = async (file: File, bucket: string, isPublic: boolean = true) => {
-        const { data, error } = await supabase.storage.from(bucket).upload(`${Date.now()}_${file.name}`, file);
-        if (error) throw new Error(`Error uploading ${file.name}: ${error.message}`);
-        if (isPublic) {
-            return supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
+        const uploadAndGetUrl = async (file: File, bucket: string, isPublic: boolean = true) => {
+            const { data, error } = await supabase.storage.from(bucket).upload(`${Date.now()}_${file.name}`, file);
+            if (error) throw new Error(`Error uploading ${file.name}: ${error.message}`);
+            if (isPublic) {
+                return supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
+            }
+            return data.path;
+        };
+
+        // Menggunakan toast.promise untuk menangani loading state upload file
+        await toast.promise(
+            (async () => {
+                if (files.mainImage) { updateData.main_image_url = await uploadAndGetUrl(files.mainImage, 'font_images'); }
+                if (files.galleryImages.length > 0) {
+                    const newUrls = await Promise.all(files.galleryImages.map(file => uploadAndGetUrl(file, 'font_images')));
+                    updateData.gallery_image_urls = [...existingImageUrls.gallery, ...newUrls];
+                } else {
+                    updateData.gallery_image_urls = existingImageUrls.gallery;
+                }
+                if (files.downloadableFile) { updateData.downloadable_file_url = await uploadAndGetUrl(files.downloadableFile, 'downloadable-files', false); }
+                if (files.displayFontRegular) { updateData.display_font_regular_url = await uploadAndGetUrl(files.displayFontRegular, 'display-fonts'); }
+                if (files.displayFontItalic) { updateData.display_font_italic_url = await uploadAndGetUrl(files.displayFontItalic, 'display-fonts'); }
+            })(),
+            {
+                loading: 'Uploading new files (if any)...',
+                success: 'File upload process complete!',
+                error: (err: any) => `Upload failed: ${err.message}`,
+            }
+        );
+
+        // Memanggil Server Action untuk mengupdate database dan revalidate cache
+        const result = await updateFontAction(fontId, updateData);
+
+        if (result.error) {
+            throw new Error(result.error);
         }
-        return data.path;
-      };
-
-      const uploadPromise = async () => {
-          if (files.mainImage) {
-              updateData.main_image_url = await uploadAndGetUrl(files.mainImage, 'font_images');
-          }
-
-          if (files.galleryImages.length > 0) {
-              const newUrls = await Promise.all(
-                  files.galleryImages.map(file => uploadAndGetUrl(file, 'font_images'))
-              );
-              updateData.gallery_image_urls = [...existingImageUrls.gallery, ...newUrls];
-          } else {
-              updateData.gallery_image_urls = existingImageUrls.gallery;
-          }
-
-          if (files.downloadableFile) {
-              updateData.downloadable_file_url = await uploadAndGetUrl(files.downloadableFile, 'downloadable-files', false);
-          }
-          if (files.displayFontRegular) {
-              updateData.display_font_regular_url = await uploadAndGetUrl(files.displayFontRegular, 'display-fonts');
-          }
-          if (files.displayFontItalic) {
-              updateData.display_font_italic_url = await uploadAndGetUrl(files.displayFontItalic, 'display-fonts');
-          }
-      };
-
-      await toast.promise(uploadPromise(), {
-          loading: 'Uploading new files (if any)...',
-          success: 'File upload process complete!',
-          error: (err: any) => `Upload failed: ${err.message}`,
-      });
-
-      const { error: updateError } = await supabase
-        .from('fonts')
-        .update(updateData)
-        .eq('id', fontId);
-
-      if (updateError) {
-          if (updateError.message.includes("column") && updateError.message.includes("does not exist")) {
-              throw new Error(`Database Error: A column in the data does not exist in the 'fonts' table. Please check your database schema.`);
-          }
-          throw updateError;
-      }
-      
-      toast.success('Font updated successfully! Redirecting...');
-      setTimeout(() => {
+        
+        toast.success('Font updated successfully! Redirecting...');
         router.push('/admin/fonts');
-      }, 1500);
+        router.refresh();
 
-    } catch (error: any) {
-        toast.error(`An error occurred: ${error.message}`);
-    } finally {
-        setIsUpdating(false);
-    }
+      } catch (error: any) {
+          toast.error(`An error occurred: ${error.message}`);
+      }
+    });
   };
 
   if (isLoading) {
@@ -317,19 +285,12 @@ export default function EditFontPage() {
                 </div>
                 <div>
                     <label className="font-medium">Category</label>
-                    <select name="category_id" value={formData.category_id || ''} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1">
-                        <option value="">Select a category</option>
-                        {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                    </select>
+                    <select name="category_id" value={formData.category_id || ''} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1"><option value="">Select a category</option>{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select>
                 </div>
                 <div>
                     <label className="font-medium">Partner (Optional)</label>
-                    <select name="partner_id" value={formData.partner_id || ''} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1">
-                        <option value="">None (Operatype)</option>
-                        {partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+                    <select name="partner_id" value={formData.partner_id || ''} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1"><option value="">None (Operatype)</option>{partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
                 </div>
-                {/* DIPERBARUI: Menggunakan 'tags' (jamak) */}
                 <div>
                     <TagInput label="Tags" tags={formData.tags as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, tags: newTags }))} />
                 </div>
@@ -347,19 +308,10 @@ export default function EditFontPage() {
                     <label className="font-medium block mb-2">Main Preview Image</label>
                     <div {...mainImageRootProps()} className={`relative group w-full h-80 border-2 border-dashed rounded-lg flex items-center justify-center text-center cursor-pointer transition-colors ${mainImageIsDragActive ? 'border-brand-orange bg-orange-50' : 'border-gray-300 hover:border-gray-400'}`}>
                         <input {...mainImageInputProps()} />
-                        {files.mainImage ? (
-                            <Image src={URL.createObjectURL(files.mainImage)} alt="New Preview" fill style={{ objectFit: 'cover' }} className="rounded-lg" />
-                        ) : existingImageUrls.main ? (
-                            <Image src={existingImageUrls.main} alt="Current Preview" fill style={{ objectFit: 'cover' }} className="rounded-lg" />
-                        ) : (
-                           <div className="text-gray-500 flex flex-col items-center justify-center">
-                               <PhotoIcon className="w-16 h-16 text-gray-400 mb-2" />
-                               <p className="font-semibold text-brand-orange">Click to upload or drag and drop</p>
-                           </div>
-                        )}
-                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <p className="text-white">Change Image</p>
-                        </div>
+                        {files.mainImage ? ( <Image src={URL.createObjectURL(files.mainImage)} alt="New Preview" fill style={{ objectFit: 'cover' }} className="rounded-lg" /> ) 
+                        : existingImageUrls.main ? ( <Image src={existingImageUrls.main} alt="Current Preview" fill style={{ objectFit: 'cover' }} className="rounded-lg" /> ) 
+                        : ( <div className="text-gray-500 flex flex-col items-center justify-center"><PhotoIcon className="w-16 h-16 text-gray-400 mb-2" /><p className="font-semibold text-brand-orange">Click to upload or drag and drop</p></div> )}
+                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><p className="text-white">Change Image</p></div>
                     </div>
                 </div>
                 <div>
@@ -373,17 +325,13 @@ export default function EditFontPage() {
                         {existingImageUrls.gallery.map((url, index) => (
                             <div key={`existing-${index}`} className="relative group aspect-square cursor-pointer" onClick={() => removeExistingGalleryImage(url)}>
                                 <Image src={url} alt={`existing-gallery-${index}`} fill style={{ objectFit: 'cover' }} className="rounded-md" />
-                                <div className="absolute inset-0 bg-red-600 flex items-center justify-center opacity-0 group-hover:opacity-75 transition-opacity">
-                                    <Trash2 className="w-6 h-6 text-white" />
-                                </div>
+                                <div className="absolute inset-0 bg-red-600 flex items-center justify-center opacity-0 group-hover:opacity-75 transition-opacity"><Trash2 className="w-6 h-6 text-white" /></div>
                             </div>
                         ))}
                          {files.galleryImages.map((file, index) => (
                             <div key={`new-${index}`} className="relative group aspect-square">
                                 <Image src={URL.createObjectURL(file)} alt={`new-gallery-${index}`} fill style={{ objectFit: 'cover' }} className="rounded-md border-2 border-green-500" />
-                                <div onClick={() => removeNewGalleryImage(index)} className="absolute top-0 right-0 m-1 w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">
-                                    &times;
-                                </div>
+                                <div onClick={() => removeNewGalleryImage(index)} className="absolute top-0 right-0 m-1 w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">&times;</div>
                             </div>
                         ))}
                     </div>

@@ -1,4 +1,5 @@
 // src/app/(main)/page.tsx
+
 import Image from 'next/image';
 import Link from 'next/link';
 import ProductCard from '@/components/ProductCard';
@@ -7,24 +8,18 @@ import HeroCarousel from '@/components/HeroCarousel';
 import { supabase } from '@/lib/supabaseClient';
 import { Database } from '@/lib/database.types';
 
-// PERBAIKAN: Impor tipe Discount secara langsung.
 type Discount = Database['public']['Tables']['discounts']['Row'];
-
-// PERBAIKAN: Tipe FontForCard disesuaikan agar cocok dengan props di ProductCard.
 type FontForCard = Database['public']['Tables']['fonts']['Row'] & {
   font_discounts: { discounts: Discount | null }[];
 };
 
-// --- Fungsi Pengambilan Data (Query sudah benar) ---
+// Mengambil font yang ditempatkan di seksi "featured"
 async function getFeaturedFonts(): Promise<FontForCard[]> {
   const { data, error } = await supabase
     .from('fonts')
-    .select('*, font_discounts(discounts(*))') // Mengambil semua detail diskon
-    .eq('is_bestseller', false)
-    .is('partner_id', null)
-    .eq('status', 'Published')
-    .order('created_at', { ascending: false })
-    .limit(8);
+    .select('*, font_discounts(discounts(*))')
+    .eq('homepage_section', 'featured') // Mengambil font dari seksi 'featured'
+    .order('homepage_order', { ascending: true }); // Mengurutkan berdasarkan urutan yang disimpan
 
   if (error) {
     console.error('Error fetching featured fonts:', error);
@@ -33,14 +28,13 @@ async function getFeaturedFonts(): Promise<FontForCard[]> {
   return data as FontForCard[];
 }
 
+// Mengambil font yang ditempatkan di seksi "curated"
 async function getCuratedFonts(): Promise<FontForCard[]> {
   const { data, error } = await supabase
     .from('fonts')
-    .select('*, font_discounts(discounts(*))') // Mengambil semua detail diskon
-    .eq('is_bestseller', true)
-    .is('partner_id', null)
-    .eq('status', 'Published')
-    .limit(4);
+    .select('*, font_discounts(discounts(*))')
+    .eq('homepage_section', 'curated') // Mengambil font dari seksi 'curated'
+    .order('homepage_order', { ascending: true }); // Mengurutkan berdasarkan urutan yang disimpan
 
   if (error) {
     console.error('Error fetching curated fonts:', error);
@@ -108,7 +102,7 @@ export default async function HomePage() {
       {/* 3. Curated Selections Section */}
       <section className="py-24 bg-[#F5F5F5]">
         <div className="container mx-auto px-4">
-          <SectionTitle title="Curated Selections" subtitle="Our community's bestsellers and our latest arrivals." />
+          <SectionTitle title="Curated Selections" subtitle="Our handpicked fonts and community's bestsellers." />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {curatedFonts.map(font => <ProductCard key={font.id} font={font} />)}
           </div>

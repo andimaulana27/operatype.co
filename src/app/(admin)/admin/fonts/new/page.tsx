@@ -256,7 +256,6 @@ export default function AddNewFontPage() {
             <select name="partner_id" value={formData.partner_id || ''} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1"><option value="">None (Operatype)</option>{partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
            </div>
            <div><TagInput label="Tags" tags={formData.tags as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, tags: newTags }))} /></div>
-           <div className="flex items-center gap-2"><input type="checkbox" name="is_bestseller" checked={!!formData.is_bestseller} onChange={handleInputChange} className="h-4 w-4" /><label>Mark as Bestseller</label></div>
         </div>
       </div>
 

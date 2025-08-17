@@ -50,9 +50,7 @@ async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
   return data as RelatedFont[];
 }
 
-// ================== PERBAIKAN FINAL DI SINI ==================
-// Tipe props didefinisikan secara langsung (inline) pada komponen.
-// Ini adalah cara paling ampuh untuk mengatasi error tipe yang persisten.
+
 export default async function FontDetailPage({ 
     params 
 }: { 

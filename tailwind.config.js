@@ -11,6 +11,7 @@ module.exports = {
         'brand-orange': '#C8705C',
         'brand-orange-hover': '#FF7C5E',
         'brand-black': '#3f3f3f',
+        'black-hover': '#4f4f4f',
         'brand-white': '#F9F9F9',
         'brand-gray-1': '#9C9C9C',
         'brand-gray-2': '#F2F2F2',
