@@ -7,7 +7,7 @@ import { Database } from '@/lib/database.types';
 // Define the types needed for the component
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type Font = Database['public']['Tables']['fonts']['Row'];
-type FontWithDetailsForCard = Font & {
+export type FontWithDetailsForCard = Font & {
   font_discounts: { discounts: Discount | null }[];
 };
 

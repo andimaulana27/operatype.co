@@ -1,4 +1,3 @@
-// src/app/(main)/partners/[slug]/client.tsx
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -10,47 +9,41 @@ import Pagination from '@/components/Pagination';
 import FilterDropdown from '@/components/FilterDropdown';
 import { Database } from '@/lib/database.types';
 import toast from 'react-hot-toast';
+import { FontWithDetailsForCard } from '@/components/ProductCard'; // Impor tipe yang benar
 
-// Tipe data yang digunakan
-type Discount = Database['public']['Tables']['discounts']['Row'];
-type FontWithDiscount = Database['public']['Tables']['fonts']['Row'] & {
-  font_discounts: { discounts: Pick<Discount, 'name' | 'percentage'> | null }[];
-};
+// Tipe Partner
 type Partner = Database['public']['Tables']['partners']['Row'];
 
 const ITEMS_PER_PAGE = 24;
 
-export default function PartnerDetailPageClient({ slug }: { slug: string }) {
-  const [fonts, setFonts] = useState<FontWithDiscount[]>([]);
-  const [partner, setPartner] = useState<Partner | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [totalItems, setTotalItems] = useState(0);
+// Komponen sekarang menerima data awal sebagai props
+export default function PartnerDetailPageClient({ 
+  partner, 
+  initialFonts, 
+  initialCount 
+}: { 
+  partner: Partner,
+  initialFonts: FontWithDetailsForCard[],
+  initialCount: number,
+}) {
+  const [fonts, setFonts] = useState<FontWithDetailsForCard[]>(initialFonts);
+  const [isLoading, setIsLoading] = useState(false);
+  const [totalItems, setTotalItems] = useState(initialCount);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('Newest');
   const [currentPage, setCurrentPage] = useState(1);
   
-  const fetchPartnerAndFonts = useCallback(async () => {
+  // Fungsi fetch hanya untuk paginasi atau filter, bukan untuk load awal
+  const fetchFilteredFonts = useCallback(async () => {
     setIsLoading(true);
 
     try {
-      // 1. Ambil data partner terlebih dahulu
-      const { data: partnerData, error: partnerError } = await supabase
-        .from('partners')
-        // DIPERBARUI: Meminta semua kolom agar sesuai dengan tipe 'Partner'
-        .select('*') 
-        .eq('slug', slug)
-        .single();
-      
-      if (partnerError) throw partnerError;
-      if (!partnerData) throw new Error("Partner not found.");
-      setPartner(partnerData);
-
-      // 2. Buat query dinamis untuk mengambil font
       let query = supabase
         .from('fonts')
-        .select('*, font_discounts(discounts(name, percentage))', { count: 'exact' })
-        .eq('partner_id', partnerData.id)
+        // PERBAIKAN: Query diubah untuk mengambil semua data diskon `discounts(*)`
+        .select('*, font_discounts(discounts(*))', { count: 'exact' })
+        .eq('partner_id', partner.id)
         .eq('status', 'Published');
 
       if (searchTerm) {
@@ -69,12 +62,11 @@ export default function PartnerDetailPageClient({ slug }: { slug: string }) {
       
       if (fontsError) throw fontsError;
       
-      let processedData = (fontsData as FontWithDiscount[]) || [];
+      let processedData = (fontsData as FontWithDetailsForCard[]) || [];
 
-      // Sorting harga di sisi klien
       if (isPriceSort) {
         processedData.sort((a, b) => {
-            const getFinalPrice = (font: FontWithDiscount) => {
+            const getFinalPrice = (font: FontWithDetailsForCard) => {
                 const discount = font.font_discounts?.[0]?.discounts;
                 const originalPrice = font.price_desktop || 0;
                 if (discount && discount.percentage) {
@@ -96,14 +88,15 @@ export default function PartnerDetailPageClient({ slug }: { slug: string }) {
     } finally {
       setIsLoading(false);
     }
-  }, [slug, searchTerm, sortBy]);
+  }, [partner.id, searchTerm, sortBy]);
 
   useEffect(() => {
-      const debounceFetch = setTimeout(() => {
-        fetchPartnerAndFonts();
+    // Jalankan fetch hanya jika ada perubahan filter, bukan saat load pertama
+    const debounceFetch = setTimeout(() => {
+        fetchFilteredFonts();
     }, 300);
     return () => clearTimeout(debounceFetch);
-  }, [fetchPartnerAndFonts]);
+  }, [fetchFilteredFonts]);
   
   const paginatedFonts = useMemo(() => {
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -118,7 +111,7 @@ export default function PartnerDetailPageClient({ slug }: { slug: string }) {
     <div className="bg-brand-white">
       <div className="container mx-auto px-4 pt-16 pb-8">
         <SectionTitle 
-          title={isLoading ? 'Loading Partner...' : partner?.name || 'Partner Fonts'}
+          title={partner?.name || 'Partner Fonts'}
           subtitle={partner?.subheadline || ''}
         />
       </div>
@@ -158,7 +151,7 @@ export default function PartnerDetailPageClient({ slug }: { slug: string }) {
 
       <section className="container mx-auto px-4 pt-8 pb-24">
         {isLoading ? (
-          <p className="text-center text-brand-gray-1">Loading fonts...</p>
+          <p className="text-center text-brand-gray-1">Filtering fonts...</p>
         ) : fonts.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
