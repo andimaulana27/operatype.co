@@ -2,6 +2,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
+// Halaman ini adalah Server Component, tidak perlu 'use client'
 export default function AboutPage() {
   return (
     <div className="bg-brand-white">
@@ -16,6 +17,8 @@ export default function AboutPage() {
               alt="Operatype workspace"
               layout="fill"
               objectFit="cover"
+              // PERBAIKAN: Menambahkan 'priority' agar gambar dimuat lebih cepat
+              priority 
             />
           </div>
           
@@ -29,9 +32,7 @@ export default function AboutPage() {
               We are Operatype, a collective of designers dedicated to crafting high-quality fonts.
             </p>
             
-            {/* PERBAIKAN: Garis oranye di sini dihapus sesuai permintaan */}
-            
-            <div className="mt-6"> {/* Menambahkan margin top untuk spasi */}
+            <div className="mt-6">
               <h3 className="font-medium text-brand-orange mb-4">Our Value</h3>
               <div className="flex flex-col md:flex-row items-center gap-x-6 gap-y-2 font-medium text-brand-black">
                 <span>Passion for Precision</span>
@@ -73,6 +74,8 @@ export default function AboutPage() {
               alt="Crafting a font"
               layout="fill"
               objectFit="cover"
+              // PERBAIKAN: Menambahkan 'priority' agar gambar dimuat lebih cepat
+              priority
             />
           </div>
         </section>

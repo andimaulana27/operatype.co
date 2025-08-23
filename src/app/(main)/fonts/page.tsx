@@ -1,19 +1,15 @@
 // src/app/(main)/fonts/page.tsx
-'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+// Hapus 'use client'. Ini sekarang adalah Server Component.
 import ProductCard from '@/components/ProductCard';
 import { supabase } from '@/lib/supabaseClient';
-import { SearchIcon } from '@/components/icons';
 import Pagination from '@/components/Pagination';
 import FilterDropdown from '@/components/FilterDropdown';
 import { Database } from '@/lib/database.types';
-import toast from 'react-hot-toast';
+import SearchInput from '@/components/SearchInput'; // Komponen baru untuk pencarian
 
-// --- PERBAIKAN 1: Menggunakan tipe Discount lengkap ---
+// Tipe data yang konsisten
 type Discount = Database['public']['Tables']['discounts']['Row'];
-
-// Tipe ini sekarang konsisten dengan ProductCard dan mengambil data diskon lengkap
 type FontWithDetails = Database['public']['Tables']['fonts']['Row'] & {
   categories: { name: string } | null;
   font_discounts: { discounts: Discount | null }[];
@@ -21,128 +17,85 @@ type FontWithDetails = Database['public']['Tables']['fonts']['Row'] & {
 
 const ITEMS_PER_PAGE = 24;
 
-export default function AllFontsPage() {
-  const [fonts, setFonts] = useState<FontWithDetails[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [sortBy, setSortBy] = useState('Newest');
-  
-  const [categoryOptions, setCategoryOptions] = useState<string[]>(['All']);
-
-  // Mengambil opsi kategori saat komponen dimuat
-  useEffect(() => {
-    const fetchCategories = async () => {
-        const { data, error } = await supabase.from('categories').select('name').order('name');
-        if (data) {
-            setCategoryOptions(['All', ...data.map(c => c.name)]);
-        }
-    };
-    fetchCategories();
-  }, []);
-
-  // Fungsi utama untuk mengambil dan memfilter data font
-  const fetchFonts = useCallback(async () => {
-    setIsLoading(true);
-
-    let query = supabase
-      .from('fonts')
-      // --- PERBAIKAN 2: Query diubah untuk mengambil semua data diskon terkait ---
-      .select('*, categories!inner(name), font_discounts(discounts(*))', { count: 'exact' })
-      .is('partner_id', null) // Hanya font dari Operatype, bukan partner
-      .eq('status', 'Published');
-
-    // Terapkan filter pencarian
-    if (searchTerm) {
-      query = query.ilike('name', `%${searchTerm}%`);
-    }
-    
-    // Terapkan filter kategori
-    if (selectedCategory !== 'All') {
-      query = query.eq('categories.name', selectedCategory);
-    }
-
-    // Terapkan pengurutan non-harga di level database
-    const isPriceSort = sortBy.includes('Price');
-    if (!isPriceSort) {
-        if (sortBy === 'Newest') query = query.order('created_at', { ascending: false });
-        else if (sortBy === 'Oldest') query = query.order('created_at', { ascending: true });
-        else if (sortBy === 'A to Z') query = query.order('name', { ascending: true });
-        else if (sortBy === 'Z to A') query = query.order('name', { ascending: false });
-    }
-    
-    // Eksekusi query
-    // Jika sorting berdasarkan harga, ambil semua data dulu baru di-sort di client
-    const { data, error, count } = isPriceSort 
-      ? await query 
-      : await query.range((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE - 1);
-
+// Fungsi untuk mengambil kategori (dijalankan di server)
+async function getCategories() {
+    const { data, error } = await supabase.from('categories').select('name').order('name');
     if (error) {
-      toast.error('Error fetching fonts: ' + error.message);
-      setFonts([]);
-    } else {
-        let processedData = (data as FontWithDetails[]) || [];
-
-        // --- PERBAIKAN 3: Logika sorting harga yang memperhitungkan diskon aktif ---
-        if (isPriceSort) {
-            processedData.sort((a, b) => {
-                // Helper function untuk mendapatkan harga final (setelah diskon)
-                const getFinalPrice = (font: FontWithDetails) => {
-                    const now = new Date();
-                    const activeDiscount = font.font_discounts
-                        .map(fd => fd.discounts)
-                        .find(d => 
-                            d && d.is_active &&
-                            d.start_date && new Date(d.start_date) <= now &&
-                            d.end_date && new Date(d.end_date) >= now
-                        );
-
-                    const originalPrice = font.price_desktop || 0;
-                    if (activeDiscount && activeDiscount.percentage) {
-                        return originalPrice - (originalPrice * activeDiscount.percentage / 100);
-                    }
-                    return originalPrice;
-                };
-
-                const priceA = getFinalPrice(a);
-                const priceB = getFinalPrice(b);
-
-                return sortBy === 'Price: Low to High' ? priceA - priceB : priceB - priceA;
-            });
-        }
-        
-        setTotalItems(count || 0);
-        setFonts(processedData);
+        console.error("Error fetching categories:", error);
+        return [];
     }
-    setIsLoading(false);
-  }, [searchTerm, selectedCategory, sortBy, currentPage]);
+    return data.map(c => c.name);
+}
 
-  // Efek untuk menjalankan fetchFonts dengan debounce saat filter berubah
-  useEffect(() => {
-    const debounceFetch = setTimeout(() => {
-        fetchFonts();
-    }, 300); // Menunggu 300ms setelah user berhenti mengetik/memilih
+// Komponen halaman sekarang `async` dan menerima `searchParams`
+export default async function AllFontsPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  // 1. Baca state dari URL, bukan dari useState
+  const searchTerm = typeof searchParams.search === 'string' ? searchParams.search : '';
+  const selectedCategory = typeof searchParams.category === 'string' ? searchParams.category : 'All';
+  const sortBy = typeof searchParams.sort === 'string' ? searchParams.sort : 'Newest';
+  const currentPage = typeof searchParams.page === 'string' ? Number(searchParams.page) : 1;
 
-    return () => clearTimeout(debounceFetch);
-  }, [fetchFonts]);
-
-  // Memoize data yang akan ditampilkan di halaman saat ini
-  const paginatedFonts = useMemo(() => {
-    // Jika sorting berdasarkan harga, paginasi dilakukan di client
-    if (sortBy.includes('Price')) {
-        const from = (currentPage - 1) * ITEMS_PER_PAGE;
-        const to = from + ITEMS_PER_PAGE;
-        return fonts.slice(from, to);
-    }
-    // Jika tidak, data sudah dipaginasi oleh database
-    return fonts;
-  }, [fonts, currentPage, sortBy]);
-
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  // 2. Ambil data kategori untuk dropdown filter
+  const categoryOptions = ['All', ...(await getCategories())];
   const sortOptions = ["Newest", "Oldest", "Price: Low to High", "Price: High to Low", "A to Z", "Z to A"];
+
+  // 3. Bangun query ke database berdasarkan parameter dari URL
+  let query = supabase
+    .from('fonts')
+    .select('*, categories!inner(name), font_discounts(discounts(*))', { count: 'exact' })
+    .eq('status', 'Published');
+
+  if (searchTerm) {
+    query = query.ilike('name', `%${searchTerm}%`);
+  }
+  if (selectedCategory !== 'All') {
+    query = query.eq('categories.name', selectedCategory);
+  }
+
+  const isPriceSort = sortBy.includes('Price');
+  if (!isPriceSort) {
+      if (sortBy === 'Newest') query = query.order('created_at', { ascending: false });
+      else if (sortBy === 'Oldest') query = query.order('created_at', { ascending: true });
+      else if (sortBy === 'A to Z') query = query.order('name', { ascending: true });
+      else if (sortBy === 'Z to A') query = query.order('name', { ascending: false });
+  }
+
+  // 4. Eksekusi query
+  const { data, error, count } = await query;
+  let fonts: FontWithDetails[] = data || [];
+
+  // 5. Lakukan sorting harga di server jika diperlukan
+  if (isPriceSort && fonts) {
+      fonts.sort((a, b) => {
+          const getFinalPrice = (font: FontWithDetails) => {
+              const now = new Date();
+              const activeDiscount = font.font_discounts
+                  .map(fd => fd.discounts)
+                  .find(d => 
+                      d && d.is_active &&
+                      d.start_date && new Date(d.start_date) <= now &&
+                      d.end_date && new Date(d.end_date) >= now
+                  );
+              const originalPrice = font.price_desktop || 0;
+              if (activeDiscount?.percentage) {
+                  return originalPrice - (originalPrice * activeDiscount.percentage / 100);
+              }
+              return originalPrice;
+          };
+          const priceA = getFinalPrice(a);
+          const priceB = getFinalPrice(b);
+          return sortBy === 'Price: Low to High' ? priceA - priceB : priceB - priceA;
+      });
+  }
+
+  // 6. Lakukan paginasi di server
+  const totalItems = count || 0;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const paginatedFonts = fonts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <div className="bg-brand-white">
@@ -156,38 +109,20 @@ export default function AllFontsPage() {
 
       <section className="container mx-auto px-4 py-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:w-1/3">
-            <input
-              type="text"
-              placeholder="Search font by name..."
-              value={searchTerm}
-              onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1); // Reset ke halaman 1 saat mencari
-              }}
-              className="w-full bg-transparent text-brand-black pl-6 pr-12 py-3 border border-brand-black rounded-full placeholder:text-brand-gray-1 focus:outline-none focus:border-brand-orange transition-colors"
-            />
-            <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-              <SearchIcon className="h-6 w-6 text-brand-orange" />
-            </div>
+          <div className="w-full md:w-1/3">
+            {/* Komponen SearchInput baru yang mengontrol URL */}
+            <SearchInput placeholder="Search font by name..." />
           </div>
           
           <div className="flex w-full md:w-auto items-center gap-4">
+            {/* FilterDropdown sekarang menerima `paramName` untuk memanipulasi URL */}
             <FilterDropdown
-              value={selectedCategory}
-              onChange={(value) => {
-                  setSelectedCategory(value);
-                  setCurrentPage(1); // Reset ke halaman 1 saat filter
-              }}
+              paramName="category"
               options={categoryOptions}
             />
             <FilterDropdown
+              paramName="sort"
               label="Sort by:"
-              value={sortBy}
-              onChange={(value) => {
-                  setSortBy(value);
-                  setCurrentPage(1); // Reset ke halaman 1 saat sorting
-              }}
               options={sortOptions}
             />
           </div>
@@ -196,9 +131,7 @@ export default function AllFontsPage() {
       </section>
 
       <section className="container mx-auto px-4 pt-8 pb-24">
-        {isLoading ? (
-          <div className="text-center py-16 text-lg text-gray-500">Loading fonts...</div>
-        ) : fonts.length > 0 ? (
+        {fonts.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {paginatedFonts.map((font) => (
@@ -209,7 +142,6 @@ export default function AllFontsPage() {
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={(page) => setCurrentPage(page)}
               />
             )}
           </>

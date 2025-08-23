@@ -83,8 +83,31 @@ export default async function FontDetailPage({
           new Date(d.end_date) >= now
       );
 
+  // Helper untuk menentukan tipe MIME font
+  const getFontMimeType = (url: string | null) => {
+    if (!url) return '';
+    if (url.endsWith('.otf')) return 'font/otf';
+    if (url.endsWith('.ttf')) return 'font/ttf';
+    return ''; // Default
+  };
+
   return (
     <>
+      {/* PERBAIKAN: Menambahkan <link rel="preload">.
+        Tag ini akan memberitahu browser untuk mulai mengunduh file font italic
+        di latar belakang segera setelah halaman dimuat, tanpa menunda render.
+        Ini akan membuat perpindahan ke style Italic di Type Tester menjadi instan.
+      */}
+      {font.display_font_italic_url && (
+        <link
+          rel="preload"
+          href={font.display_font_italic_url}
+          as="font"
+          type={getFontMimeType(font.display_font_italic_url)}
+          crossOrigin="anonymous"
+        />
+      )}
+
       <DynamicFontLoader 
         fontFamily={dynamicFontFamilyRegular} 
         fontUrl={font.display_font_regular_url} 
@@ -98,7 +121,6 @@ export default async function FontDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           
           <div className="w-full lg:col-span-2">
-            {/* PERBAIKAN 1: Memastikan galleryImages selalu array string */}
             <FontImageGallery 
               mainImage={font.main_image_url}
               galleryImages={Array.isArray(font.gallery_image_urls) ? font.gallery_image_urls as string[] : []}
@@ -176,21 +198,18 @@ export default async function FontDetailPage({
                <div>
                 <SectionHeader title="Feature Product" />
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                  {/* PERBAIKAN 2: Memastikan product_information selalu array string */}
                   {(Array.isArray(font.product_information) ? font.product_information as string[] : []).map((info: string) => <li key={info}>{info}</li>)}
                 </ul>
               </div>
               <div>
                 <SectionHeader title="Styles" />
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                  {/* PERBAIKAN 3: Memastikan styles selalu array string */}
                   {(Array.isArray(font.styles) ? font.styles as string[] : []).map((style: string) => <li key={style}>{style}</li>)}
                 </ul>
               </div>
               <div>
                 <SectionHeader title="Tags" />
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                  {/* PERBAIKAN 4: Memastikan tags selalu array string */}
                   {(Array.isArray(font.tags) ? font.tags as string[] : []).map((tag: string) => <li key={tag}>{tag}</li>)}
                 </ul>
               </div>

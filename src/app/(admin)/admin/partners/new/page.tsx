@@ -1,20 +1,22 @@
 // src/app/(admin)/admin/partners/new/page.tsx
 'use client';
 
-import { useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { useState, useCallback, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useDropzone } from 'react-dropzone';
 import Image from 'next/image';
 import { PhotoIcon } from '@/components/icons';
+import { addPartnerAction } from '@/app/actions/partnerActions'; // Import Server Action
 
 export default function AddNewPartnerPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [subheadline, setSubheadline] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  
+  // Gunakan useTransition untuk menangani loading state saat action berjalan
+  const [isPending, startTransition] = useTransition();
 
   const onDropLogo = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles?.length) {
@@ -28,62 +30,39 @@ export default function AddNewPartnerPage() {
     maxFiles: 1,
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // PERBAIKAN: handleSubmit sekarang memanggil Server Action
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // Validasi di sisi klien tetap penting untuk UX
     if (!name) {
       toast.error('Partner Name is required.');
       return;
     }
-    setIsLoading(true);
 
-    try {
-      let logo_url = '';
+    // Buat objek FormData untuk dikirim ke action
+    const formData = new FormData(e.currentTarget);
+    if (logoFile) {
+      formData.append('logo', logoFile);
+    }
 
-      // 1. Upload logo jika ada file yang dipilih
-      if (logoFile) {
-        const filePath = `${Date.now()}_${logoFile.name}`;
-        const { data, error: uploadError } = await supabase.storage
-          .from('partner_logos')
-          .upload(filePath, logoFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-          .from('partner_logos')
-          .getPublicUrl(data.path);
-        
-        logo_url = urlData.publicUrl;
-      }
-
-      // 2. Buat slug dari nama partner
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-      // 3. Simpan data ke tabel 'partners'
-      const { error: insertError } = await supabase.from('partners').insert({
-        name,
-        subheadline,
-        slug,
-        logo_url: logo_url || null,
-      });
-
-      if (insertError) throw insertError;
-
-      toast.success('Partner added successfully! Redirecting...');
-      setTimeout(() => {
+    startTransition(async () => {
+      const result = await addPartnerAction(formData);
+      
+      if (result?.error) {
+        toast.error(`An error occurred: ${result.error}`);
+      } else if (result?.success) {
+        toast.success('Partner added successfully! Redirecting...');
         router.push('/admin/partners');
         router.refresh(); // Memastikan data di halaman daftar partner diperbarui
-      }, 1500);
-
-    } catch (error: any) {
-      toast.error(`An error occurred: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
+      }
+    });
   };
 
   return (
     <div>
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Add New Partner</h1>
+      {/* Form sekarang memanggil handleSubmit yang baru */}
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-md max-w-2xl mx-auto">
         <div className="space-y-6">
           {/* Partner Name */}
@@ -92,6 +71,7 @@ export default function AddNewPartnerPage() {
             <input
               type="text"
               id="name"
+              name="name" // Tambahkan atribut 'name' untuk FormData
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="mt-1 block w-full p-2 border rounded-md"
@@ -105,6 +85,7 @@ export default function AddNewPartnerPage() {
             <input
               type="text"
               id="subheadline"
+              name="subheadline" // Tambahkan atribut 'name' untuk FormData
               value={subheadline}
               onChange={(e) => setSubheadline(e.target.value)}
               className="mt-1 block w-full p-2 border rounded-md"
@@ -135,8 +116,8 @@ export default function AddNewPartnerPage() {
         </div>
 
         <div className="mt-8 border-t pt-6">
-          <button type="submit" disabled={isLoading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-brand-orange-hover disabled:bg-gray-400">
-            {isLoading ? 'Saving Partner...' : 'Save Partner'}
+          <button type="submit" disabled={isPending} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-brand-orange-hover disabled:bg-gray-400">
+            {isPending ? 'Saving Partner...' : 'Save Partner'}
           </button>
         </div>
       </form>

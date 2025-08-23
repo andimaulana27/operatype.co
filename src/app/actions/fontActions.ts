@@ -1,32 +1,108 @@
+// src/app/actions/fontActions.ts
 'use server';
 
-import { createClient } from '@supabase/supabase-js';
+import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { Database } from '@/lib/database.types';
+import { createClient } from '@supabase/supabase-js'; // PERBAIKAN: Tambahkan import ini
 
 type FontFormData = Partial<Database['public']['Tables']['fonts']['Row']>;
+type DiscountInsert = Database['public']['Tables']['discounts']['Insert'];
 type DiscountUpdate = Partial<Database['public']['Tables']['discounts']['Update']>;
-type FileUrls = {
-  main_image_url: string | null;
-  gallery_image_urls: string[];
-  downloadable_file_url: string | null;
-  display_font_regular_url: string | null;
-  display_font_italic_url: string | null;
-};
 
-// ... (fungsi-fungsi sebelumnya seperti deleteFontAction, addFontAction, dll. tetap di sini) ...
+// PERBAIKAN UTAMA: Fungsi addFontAction sekarang menangani upload file di server
+export async function addFontAction(formData: FormData) {
+  const supabase = createServerActionClient({ cookies });
+
+  // Helper function untuk upload file di server
+  const uploadFile = async (file: File, bucket: string, isPublic: boolean = true) => {
+    const filePath = `${Date.now()}_${file.name}`;
+    const { data, error } = await supabase.storage.from(bucket).upload(filePath, file);
+    if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
+    if (isPublic) {
+        return supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
+    }
+    return data.path; // Untuk file yang tidak publik
+  };
+
+  try {
+    // 1. Ekstrak semua data dari FormData
+    const name = String(formData.get('name'));
+    const description = String(formData.get('description'));
+    const price_desktop = Number(formData.get('price_desktop'));
+    const price_business = Number(formData.get('price_business'));
+    const price_corporate = Number(formData.get('price_corporate'));
+    const category_id = String(formData.get('category_id'));
+    const partner_id = formData.get('partner_id') ? String(formData.get('partner_id')) : null;
+    const status = String(formData.get('status'));
+    const is_bestseller = formData.get('is_bestseller') === 'on';
+    const glyph_string = String(formData.get('glyph_string'));
+    const file_size = String(formData.get('file_size'));
+    const file_types = String(formData.get('file_types'));
+    
+    // Ekstrak data array (tags, styles, dll.)
+    const tags = formData.getAll('tags').map(String);
+    const product_information = formData.getAll('product_information').map(String);
+    const styles = formData.getAll('styles').map(String);
+
+    // 2. Handle upload file
+    const mainImageFile = formData.get('mainImage') as File | null;
+    const galleryImageFiles = formData.getAll('galleryImages') as File[];
+    const downloadableFile = formData.get('downloadableFile') as File | null;
+    const displayFontRegularFile = formData.get('displayFontRegular') as File | null;
+    const displayFontItalicFile = formData.get('displayFontItalic') as File | null;
+
+    const fileUrls = {
+      main_image_url: mainImageFile && mainImageFile.size > 0 ? await uploadFile(mainImageFile, 'font_images') : null,
+      gallery_image_urls: await Promise.all(galleryImageFiles.map(f => uploadFile(f, 'font_images'))),
+      downloadable_file_url: downloadableFile && downloadableFile.size > 0 ? await uploadFile(downloadableFile, 'downloadable-files', false) : null,
+      display_font_regular_url: displayFontRegularFile && displayFontRegularFile.size > 0 ? await uploadFile(displayFontRegularFile, 'display-fonts') : null,
+      display_font_italic_url: displayFontItalicFile && displayFontItalicFile.size > 0 ? await uploadFile(displayFontItalicFile, 'display-fonts') : null,
+    };
+
+    // 3. Siapkan data untuk dimasukkan ke database
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    
+    const finalData = {
+      name, slug, description, price_desktop, price_business, price_corporate,
+      category_id, partner_id, status, is_bestseller, glyph_string, file_size, file_types,
+      tags, product_information, styles,
+      main_image_url: fileUrls.main_image_url,
+      gallery_image_urls: fileUrls.gallery_image_urls,
+      downloadable_file_url: fileUrls.downloadable_file_url,
+      display_font_regular_url: fileUrls.display_font_regular_url,
+      display_font_italic_url: fileUrls.display_font_italic_url,
+    };
+
+    const { error } = await supabase.from('fonts').insert([finalData]);
+    if (error) {
+        if (error.code === '23505') throw new Error('A font with this name or slug already exists.');
+        throw error;
+    }
+    
+    // 4. Revalidate path untuk memperbarui cache
+    revalidatePath('/admin/fonts');
+    revalidatePath('/fonts');
+    revalidatePath('/');
+    
+    return { success: 'Font added successfully!' };
+  } catch (error: any) {
+    console.error("Add Font Action Error: ", error);
+    return { error: `Failed to add font: ${error.message}` };
+  }
+}
 
 export async function deleteFontAction(fontId: string, fileUrls: any) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-
   try {
-    const pathsToDelete = {
-      font_images: [] as string[],
-      'display-fonts': [] as string[],
-      'downloadable-files': [] as string[],
+    const pathsToDelete: { [key: string]: string[] } = {
+      font_images: [],
+      'display-fonts': [],
+      'downloadable-files': [],
     };
 
     const getPathFromUrl = (url: string, bucket: string): string | null => {
@@ -38,10 +114,22 @@ export async function deleteFontAction(fontId: string, fileUrls: any) {
         } catch { return null; }
     };
 
-    if (fileUrls.main_image_url) pathsToDelete.font_images.push(getPathFromUrl(fileUrls.main_image_url, 'font_images')!);
-    if (fileUrls.display_font_regular_url) pathsToDelete['display-fonts'].push(getPathFromUrl(fileUrls.display_font_regular_url, 'display-fonts')!);
-    if (fileUrls.display_font_italic_url) pathsToDelete['display-fonts'].push(getPathFromUrl(fileUrls.display_font_italic_url, 'display-fonts')!);
-    if (fileUrls.downloadable_file_url) pathsToDelete['downloadable-files'].push(fileUrls.downloadable_file_url);
+    if (fileUrls.main_image_url) {
+        const path = getPathFromUrl(fileUrls.main_image_url, 'font_images');
+        if (path) pathsToDelete.font_images.push(path);
+    }
+    if (fileUrls.display_font_regular_url) {
+        const path = getPathFromUrl(fileUrls.display_font_regular_url, 'display-fonts');
+        if (path) pathsToDelete['display-fonts'].push(path);
+    }
+    if (fileUrls.display_font_italic_url) {
+        const path = getPathFromUrl(fileUrls.display_font_italic_url, 'display-fonts');
+        if (path) pathsToDelete['display-fonts'].push(path);
+    }
+    if (fileUrls.downloadable_file_url) {
+        // Asumsi downloadable_file_url adalah path, bukan public URL
+        pathsToDelete['downloadable-files'].push(fileUrls.downloadable_file_url);
+    }
 
     if (Array.isArray(fileUrls.gallery_image_urls)) {
         const galleryPaths = fileUrls.gallery_image_urls
@@ -74,52 +162,11 @@ export async function deleteFontAction(fontId: string, fileUrls: any) {
   }
 }
 
-export async function addFontAction(formData: FontFormData, fileUrls: FileUrls) {
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-  
-  try {
-    const slug = formData.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || '';
-    
-    const finalData = {
-      ...formData,
-      slug,
-      price_desktop: parseFloat(String(formData.price_desktop || 0)),
-      price_business: parseFloat(String(formData.price_business || 0)),
-      price_corporate: parseFloat(String(formData.price_corporate || 0)),
-      main_image_url: fileUrls.main_image_url,
-      gallery_image_urls: fileUrls.gallery_image_urls,
-      downloadable_file_url: fileUrls.downloadable_file_url,
-      display_font_regular_url: fileUrls.display_font_regular_url,
-      display_font_italic_url: fileUrls.display_font_italic_url,
-    };
-
-    const { data: insertedData, error } = await supabaseAdmin.from('fonts').insert([finalData]).select().single();
-    if (error) {
-        if (error.code === '23505') {
-            throw new Error('A font with this name or slug already exists.');
-        }
-        throw error;
-    }
-    
-    revalidatePath('/');
-    revalidatePath('/fonts');
-    revalidatePath(`/fonts/${insertedData.slug}`);
-    revalidatePath('/admin/fonts');
-    return { success: 'Font added successfully!' };
-  } catch (error: any) {
-    return { error: `Failed to add font: ${error.message}` };
-  }
-}
-
 export async function updateFontAction(fontId: string, updateData: any) {
-  const supabaseAdmin = createClient(
+   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-
   try {
     const { error } = await supabaseAdmin
       .from('fonts')
@@ -154,7 +201,6 @@ export async function updateFontStatusAction(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-
   try {
     const { error } = await supabaseAdmin.from('fonts').update(updates).eq('id', fontId);
     if (error) throw error;
@@ -163,7 +209,6 @@ export async function updateFontStatusAction(
     revalidatePath('/');
     
     return { success: 'Font status updated successfully.' };
-
   } catch (error: any) {
     return { error: `Database error: ${error.message}` };
   }
@@ -177,7 +222,6 @@ export async function updateHomepageLayoutAction(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-
   try {
     await supabaseAdmin
       .from('fonts')
@@ -213,20 +257,41 @@ export async function updateHomepageLayoutAction(
   }
 }
 
+export async function createDiscountAction(data: DiscountInsert) {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  try {
+    const { error } = await supabaseAdmin.from('discounts').insert([data]);
+    if (error) {
+      const errorMessage = error.message.includes('violates row-level security policy') 
+        ? 'The action is blocked by a security policy.' 
+        : error.message;
+      throw new Error(`Failed to create discount: ${errorMessage}`);
+    }
+    
+    revalidatePath('/admin/fonts');
+    revalidatePath('/');
+    revalidatePath('/fonts');
+    
+    return { success: `Discount "${data.name}" created successfully!` };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
 export async function deleteDiscountAction(discountId: string) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-
   try {
-    // Hapus dulu relasi di font_discounts
     await supabaseAdmin
       .from('font_discounts')
       .delete()
       .eq('discount_id', discountId);
 
-    // Baru hapus diskonnya
     const { error: discountError } = await supabaseAdmin
       .from('discounts')
       .delete()
@@ -237,8 +302,7 @@ export async function deleteDiscountAction(discountId: string) {
     }
 
     revalidatePath('/admin/fonts');
-    revalidatePath('/'); // Revalidate homepage juga
-    // Perlu revalidate semua halaman font, cara paling mudah revalidate path /fonts
+    revalidatePath('/');
     revalidatePath('/fonts');
 
     return { success: 'Discount deleted successfully.' };
@@ -247,13 +311,11 @@ export async function deleteDiscountAction(discountId: string) {
   }
 }
 
-// --- FUNGSI BARU UNTUK UPDATE DISKON ---
 export async function updateDiscountAction(discountId: string, updateData: DiscountUpdate) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-
   try {
     const { error } = await supabaseAdmin
       .from('discounts')

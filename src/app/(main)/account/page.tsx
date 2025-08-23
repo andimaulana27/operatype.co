@@ -1,15 +1,16 @@
 // src/app/(main)/account/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react'; // 1. Impor useTransition
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UserPencilIcon, KeyIcon, LogoutIcon, DownloadIcon } from '@/components/icons';
 import toast from 'react-hot-toast';
+import { logoutAction } from '@/app/actions/authActions'; // 2. Impor logoutAction
 
-// DIPERBARUI: Tipe data disesuaikan dengan struktur asli dari Supabase
+// Tipe data disesuaikan dengan struktur asli dari Supabase
 type PurchaseHistoryItem = {
   id: string;
   created_at: string;
@@ -19,10 +20,20 @@ type PurchaseHistoryItem = {
 };
 
 export default function AccountPage() {
-  const { user, session, profile, logout } = useAuth();
+  const { user, session, profile } = useAuth(); // 3. Hapus 'logout' dari sini
   const router = useRouter();
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPending, startTransition] = useTransition(); // 4. Tambahkan state transisi
+
+  // 5. Buat handler untuk logout menggunakan Server Action
+  const handleLogout = () => {
+    startTransition(async () => {
+      toast.loading('Logging out...');
+      await logoutAction();
+      toast.dismiss();
+    });
+  };
 
   useEffect(() => {
     if (!session) {
@@ -36,7 +47,6 @@ export default function AccountPage() {
         return; 
       }
 
-      // Query ini sudah benar, karena relasi one-to-many akan selalu mengembalikan array
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -103,13 +113,17 @@ export default function AccountPage() {
               <nav className="flex flex-col space-y-1 font-medium">
                 <SidebarLink href="/account/edit-profile" icon={<UserPencilIcon />} text="Edit Profile" />
                 <SidebarLink href="/account/change-password" icon={<KeyIcon />} text="Change Password" />
-                <button 
-                  onClick={logout}
-                  className="flex items-center w-full gap-3 p-3 rounded-md hover:bg-red-50 transition-colors text-left text-red-600"
-                >
-                  <span className="w-5 h-5"><LogoutIcon /></span>
-                  <span>Logout</span>
-                </button>
+                {/* 6. Ganti 'button' dengan 'form' dan 'onClick' dengan 'action' */}
+                <form action={handleLogout}>
+                  <button 
+                    type="submit"
+                    disabled={isPending}
+                    className="flex items-center w-full gap-3 p-3 rounded-md hover:bg-red-50 transition-colors text-left text-red-600 disabled:opacity-50"
+                  >
+                    <span className="w-5 h-5"><LogoutIcon /></span>
+                    <span>{isPending ? 'Logging out...' : 'Logout'}</span>
+                  </button>
+                </form>
               </nav>
             </div>
           </aside>
@@ -133,7 +147,6 @@ export default function AccountPage() {
                         <tr key={item.id}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(item.created_at)}</td>
                           <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                            {/* DIPERBARUI: Mengakses nama font dari array */}
                             {item.fonts?.[0]?.name || 'Font not found'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.license_type}</td>

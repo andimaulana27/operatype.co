@@ -6,11 +6,13 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { LogoutIcon } from '@/components/icons';
 import Image from 'next/image';
+import { logoutAction } from '@/app/actions/authActions'; // Import Server Action
+import toast from 'react-hot-toast';
+import { useTransition } from 'react';
 
 const navLinks = [
   { name: 'Dashboard', href: '/admin/dashboard' },
   { name: 'Manage Fonts', href: '/admin/fonts' },
-  // BARU: Menambahkan link untuk halaman Manage Homepage
   { name: 'Manage Homepage', href: '/admin/homepage' },
   { name: 'Manage Partners', href: '/admin/partners' },
   { name: 'Manage Orders', href: '/admin/orders' },
@@ -19,7 +21,16 @@ const navLinks = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, profile, logout } = useAuth();
+  const { user, profile } = useAuth();
+  const [isPending, startTransition] = useTransition();
+
+  const handleLogout = () => {
+    startTransition(async () => {
+      toast.loading('Logging out...');
+      await logoutAction();
+      toast.dismiss(); // Hapus toast loading setelah selesai
+    });
+  };
 
   return (
     <aside className="w-64 bg-white text-brand-black flex flex-col">
@@ -58,13 +69,16 @@ export default function Sidebar() {
           <p className="font-semibold">{profile?.full_name || 'Admin'}</p>
           <p className="text-xs text-brand-gray-1">{user?.email}</p>
         </div>
-        <button 
-          onClick={logout}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
-        >
-          <LogoutIcon className="w-5 h-5" />
-          <span>Logout</span>
-        </button>
+        <form action={handleLogout}>
+          <button 
+            type="submit"
+            disabled={isPending}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            <LogoutIcon className="w-5 h-5" />
+            <span>{isPending ? 'Logging out...' : 'Logout'}</span>
+          </button>
+        </form>
       </div>
     </aside>
   );

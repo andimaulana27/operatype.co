@@ -3,33 +3,29 @@
 
 import { useState, useEffect } from 'react';
 
+const COUNTDOWN_DURATION = 12 * 60 * 60 * 1000; // 12 jam dalam milidetik
+
 const CountdownTimer = () => {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   useEffect(() => {
-    const getEndTime = (): number => {
+    const getEndTime = () => {
       const storedEndTime = localStorage.getItem('countdownEndTime');
+      const now = new Date().getTime();
+
       if (storedEndTime) {
         const endTime = parseInt(storedEndTime, 10);
-        const now = new Date().getTime();
-
-        // Cek jika waktu sudah habis
-        if (now > endTime) {
-          const cooldownEnd = endTime + (60 * 60 * 1000); // 1 jam cooldown
-          // Jika cooldown juga sudah habis, mulai timer baru
-          if (now > cooldownEnd) {
-            const newEndTime = now + (12 * 60 * 60 * 1000); // 12 jam dari sekarang
-            localStorage.setItem('countdownEndTime', newEndTime.toString());
-            return newEndTime;
-          }
-          // Jika masih dalam masa cooldown, jangan mulai timer baru
-          return 0;
+        // Jika waktu tersimpan sudah lewat, buat timer baru.
+        if (now >= endTime) {
+          const newEndTime = now + COUNTDOWN_DURATION;
+          localStorage.setItem('countdownEndTime', newEndTime.toString());
+          return newEndTime;
         }
-        // Jika waktu belum habis, lanjutkan
+        // Jika waktu belum lewat, gunakan waktu yang tersimpan.
         return endTime;
       } else {
-        // Jika tidak ada timer sama sekali, mulai yang baru
-        const newEndTime = new Date().getTime() + (12 * 60 * 60 * 1000); // 12 jam
+        // Jika tidak ada waktu tersimpan sama sekali, buat timer baru.
+        const newEndTime = now + COUNTDOWN_DURATION;
         localStorage.setItem('countdownEndTime', newEndTime.toString());
         return newEndTime;
       }
@@ -37,21 +33,26 @@ const CountdownTimer = () => {
 
     const endTime = getEndTime();
 
+    // Set nilai awal agar tidak 'Loading...' terlalu lama
+    setTimeLeft(endTime - new Date().getTime());
+
     const timer = setInterval(() => {
       const now = new Date().getTime();
-      const distance = endTime > 0 ? endTime - now : 0;
+      const distance = endTime - now;
 
       if (distance <= 0) {
-        setTimeLeft(0);
-        // Cek lagi untuk memulai ulang setelah cooldown
-        getEndTime(); 
+        clearInterval(timer);
+        // Panggil getEndTime lagi untuk memulai siklus baru saat komponen dirender ulang
+        const newEndTime = getEndTime();
+        setTimeLeft(newEndTime - now);
       } else {
         setTimeLeft(distance);
       }
     }, 1000);
 
+    // Bersihkan interval saat komponen dilepas
     return () => clearInterval(timer);
-  }, [timeLeft]); // Bergantung pada timeLeft untuk memicu pengecekan ulang
+  }, []); // Hapus dependensi agar useEffect hanya berjalan sekali saat komponen dimuat
 
   const formatTime = (milliseconds: number) => {
     if (milliseconds <= 0) return '00 : 00 : 00';
@@ -64,7 +65,7 @@ const CountdownTimer = () => {
 
   return (
     <div className="text-3xl font-medium text-brand-orange tracking-wider mt-4">
-      {timeLeft !== null ? formatTime(timeLeft) : 'Loading...'}
+      {timeLeft !== null ? formatTime(timeLeft) : '00 : 00 : 00'}
     </div>
   );
 };

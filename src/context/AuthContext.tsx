@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
 
-// Tipe data Profile dibuat lebih aman (mengizinkan null)
 type Profile = {
   full_name: string | null;
   role: string | null;
@@ -17,7 +16,7 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  logout: () => Promise<void>;
+  // PERBAIKAN: Fungsi logout dihapus dari context
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,9 +25,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true); // Mulai dengan loading = true
+  const [loading, setLoading] = useState(true);
 
-  // DIPERBARUI: Logika pengambilan data dibuat lebih tangguh dengan try...catch...finally
   useEffect(() => {
     const getSessionAndProfile = async () => {
       try {
@@ -46,7 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .eq('id', currentUser.id)
             .single();
           
-          if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = baris tidak ditemukan
+          if (profileError && profileError.code !== 'PGRST116') {
             throw profileError;
           }
           setProfile(profileData);
@@ -54,12 +52,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setProfile(null);
         }
       } catch (error: any) {
+        // Menggunakan toast untuk notifikasi error
         toast.error("Could not fetch session: " + error.message);
         setProfile(null);
         setUser(null);
         setSession(null);
       } finally {
-        // Blok finally akan SELALU dijalankan, baik ada error maupun tidak
         setLoading(false);
       }
     };
@@ -68,7 +66,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
-        // Cukup panggil ulang fungsi utama untuk menyinkronkan semua data
         getSessionAndProfile();
       }
     );
@@ -78,20 +75,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // DIPERBARUI: Fungsi logout dibuat lebih aman dengan try...catch
-  const logout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      window.location.href = '/login'; 
-    } catch (error: any) {
-      toast.error('Logout failed: ' + error.message);
-    }
-  };
+  // PERBAIKAN: Fungsi logout dihapus dari sini
+  
+  const value = { session, user, profile, loading };
 
-  const value = { session, user, profile, loading, logout };
-
-  // BARU: Menambahkan "Gerbang Loading" untuk mencegah layar putih
   if (loading) {
     return null; // Atau tampilkan komponen loading satu layar penuh
   }

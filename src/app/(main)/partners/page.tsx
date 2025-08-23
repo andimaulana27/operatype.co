@@ -1,4 +1,11 @@
 // src/app/(main)/partners/page.tsx
+
+// PERBAIKAN: Menambahkan revalidate = 0
+// Baris ini akan memaksa Next.js untuk selalu mengambil data partner terbaru
+// dari database setiap kali halaman ini dibuka. Ini akan menyelesaikan masalah
+// di mana partner yang sudah dihapus masih muncul.
+export const revalidate = 0;
+
 import Link from 'next/link';
 import Image from 'next/image';
 import SectionTitle from '@/components/SectionTitle';
@@ -12,7 +19,8 @@ type Partner = Database['public']['Tables']['partners']['Row'];
 async function getPartners(): Promise<Partner[]> {
   const { data, error } = await supabase
     .from('partners')
-    .select('*');
+    .select('*')
+    .order('name', { ascending: true }); // Menambahkan pengurutan agar konsisten
 
   if (error) {
     console.error('Error fetching partners:', error);
@@ -53,13 +61,13 @@ export default async function PartnersPage() {
               <PartnerCard 
                 key={partner.id}
                 name={partner.name}
-                description={partner.subheadline} // Diganti dari description
+                description={partner.subheadline}
                 logoUrl={partner.logo_url}
                 slug={partner.slug}
               />
             ))
           ) : (
-            <p className="text-center col-span-3">No partners found.</p>
+            <p className="text-center col-span-3 text-brand-gray-1">No partners have been added yet.</p>
           )}
         </div>
       </div>

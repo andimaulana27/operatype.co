@@ -1,3 +1,4 @@
+// src/app/(admin)/admin/fonts/page.tsx
 'use client';
 
 import { useState, useEffect, useMemo, useTransition } from 'react';
@@ -7,7 +8,8 @@ import Image from 'next/image';
 import { Database } from '@/lib/database.types';
 import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle, Tag, Settings, X, Edit } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { deleteFontAction, updateFontStatusAction, deleteDiscountAction, updateDiscountAction } from '@/app/actions/fontActions';
+import { deleteFontAction, updateFontStatusAction, deleteDiscountAction, updateDiscountAction, createDiscountAction } from '@/app/actions/fontActions';
+import AdminPagination from '@/components/admin/AdminPagination'; // 1. Impor komponen baru
 
 // --- Tipe Data ---
 type FontRow = Database['public']['Tables']['fonts']['Row'];
@@ -25,8 +27,7 @@ type FontWithDetails = FontRow & {
 
 const ITEMS_PER_PAGE = 10;
 
-// --- Komponen Modal ---
-
+// --- Komponen Modal (Tidak ada perubahan) ---
 const DeleteConfirmationModal = ({ 
     isOpen, 
     onClose, 
@@ -73,7 +74,6 @@ const DeleteConfirmationModal = ({
     );
 };
 
-// UPDATE: Modal ini sekarang menangani Create dan Edit
 const DiscountFormModal = ({ 
     isOpen, 
     onClose, 
@@ -224,14 +224,14 @@ const ManageDiscountsModal = ({
   onClose,
   discounts,
   onOpenConfirm,
-  onOpenEdit, // UPDATE: Tambah prop untuk membuka modal edit
+  onOpenEdit,
   isLoading
 }: {
   isOpen: boolean;
   onClose: () => void;
   discounts: Discount[];
   onOpenConfirm: (discount: Discount) => void;
-  onOpenEdit: (discount: Discount) => void; // UPDATE
+  onOpenEdit: (discount: Discount) => void;
   isLoading: boolean;
 }) => {
   if (!isOpen) return null;
@@ -267,7 +267,6 @@ const ManageDiscountsModal = ({
                       </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium space-x-4">
-                      {/* UPDATE: Tombol Edit ditambahkan */}
                       <button 
                         onClick={() => onOpenEdit(d)}
                         disabled={isLoading}
@@ -296,8 +295,8 @@ const ManageDiscountsModal = ({
   );
 };
 
-
 export default function ManageFontsPage() {
+    // --- Semua state (Tidak ada perubahan) ---
     const [fonts, setFonts] = useState<FontWithDetails[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [partners, setPartners] = useState<Partner[]>([]);
@@ -316,11 +315,10 @@ export default function ManageFontsPage() {
     const [isDiscountDeleteModalOpen, setIsDiscountDeleteModalOpen] = useState(false);
     const [discountToDelete, setDiscountToDelete] = useState<Discount | null>(null);
     const [isPending, startTransition] = useTransition();
-
-    // UPDATE: State untuk modal form diskon
     const [isDiscountFormOpen, setIsDiscountFormOpen] = useState(false);
     const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null);
 
+    // --- Semua fungsi (Tidak ada perubahan) ---
     const fetchData = async () => {
         setIsLoading(true);
         const [fontsResult, categoriesResult, partnersResult, allDiscountsResult] = await Promise.all([
@@ -400,19 +398,16 @@ export default function ManageFontsPage() {
       setDiscountToDelete(null);
     };
 
-    // UPDATE: Handler untuk membuka form diskon (Create)
     const handleOpenCreateDiscount = () => {
         setEditingDiscount(null);
         setIsDiscountFormOpen(true);
     };
 
-    // UPDATE: Handler untuk membuka form diskon (Edit)
     const handleOpenEditDiscount = (discount: Discount) => {
         setEditingDiscount(discount);
         setIsDiscountFormOpen(true);
     };
 
-    // UPDATE: Handler untuk menyimpan (Create atau Update)
     const handleSaveDiscount = async (data: DiscountInsert | DiscountUpdate, id?: string) => {
         startTransition(async () => {
             if (id) { // Mode Edit
@@ -422,12 +417,12 @@ export default function ManageFontsPage() {
                 } else {
                     toast.success(result.success!);
                 }
-            } else { // Mode Create
-                const { error } = await supabase.from('discounts').insert([data as DiscountInsert]);
-                if (error) {
-                    toast.error(`Failed to create discount: ${error.message}`);
+            } else { // Mode Create (Panggil Server Action)
+                const result = await createDiscountAction(data as DiscountInsert);
+                if (result.error) {
+                    toast.error(result.error);
                 } else {
-                    toast.success(`Discount "${data.name}" created successfully!`);
+                    toast.success(result.success!);
                 }
             }
             setIsDiscountFormOpen(false);
@@ -511,7 +506,7 @@ export default function ManageFontsPage() {
 
     return (
         <div>
-            {/* UPDATE: Menggunakan DiscountFormModal */}
+            {/* --- Bagian Render (Tidak ada perubahan) --- */}
             <DiscountFormModal 
                 isOpen={isDiscountFormOpen} 
                 onClose={() => setIsDiscountFormOpen(false)} 
@@ -525,7 +520,7 @@ export default function ManageFontsPage() {
               onClose={() => setIsManageDiscountsModalOpen(false)}
               discounts={allDiscounts}
               onOpenConfirm={openDiscountDeleteModal}
-              onOpenEdit={handleOpenEditDiscount} // UPDATE
+              onOpenEdit={handleOpenEditDiscount}
               isLoading={isPending}
             />
             <DeleteConfirmationModal 
@@ -552,7 +547,6 @@ export default function ManageFontsPage() {
                     <p className="text-gray-500 mt-1">Add, edit, and manage all your font products.</p>
                 </div>
                 <div className="flex gap-2">
-                   {/* UPDATE: Tombol ini sekarang memanggil handler baru */}
                    <button onClick={handleOpenCreateDiscount} className="bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Create Discount</button>
                    <button onClick={() => setIsManageDiscountsModalOpen(true)} className="bg-gray-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2">
                     <Settings size={18} /> Manage Discounts
@@ -662,12 +656,13 @@ export default function ManageFontsPage() {
                 </table>
             </div>
             
+            {/* 2. Ganti paginasi lama dengan komponen baru */}
             {!isLoading && totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between">
-                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm border rounded-md disabled:opacity-50">Previous</button>
-                    <span className="text-sm">Page {currentPage} of {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 text-sm border rounded-md disabled:opacity-50">Next</button>
-                </div>
+                <AdminPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={(page) => setCurrentPage(page)}
+                />
             )}
         </div>
     );

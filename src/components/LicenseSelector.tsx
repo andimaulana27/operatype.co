@@ -2,12 +2,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCart } from '@/context/CartContext';
+import { useCart, CartItem } from '@/context/CartContext'; // Import CartItem
 import { Database } from '@/lib/database.types';
 import { Tag } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// Tipe data dari Supabase untuk konsistensi
 type FontData = Database['public']['Tables']['fonts']['Row'];
 type Discount = Database['public']['Tables']['discounts']['Row'];
 
@@ -18,7 +17,6 @@ type LicenseSelectorProps = {
 
 type LicenseType = 'Desktop' | 'Business' | 'Corporate';
 
-// Fungsi bantuan untuk memformat tanggal
 const formatDate = (dateString: string | null) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('en-GB', {
@@ -50,22 +48,25 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
   }, [selectedLicense, userCount, font, activeDiscount]);
 
   const handleAddToCart = () => {
-    const basePrice = (selectedLicense === 'Desktop' ? font.price_desktop : selectedLicense === 'Business' ? font.price_business : font.price_corporate) ?? 0;
+    const basePriceForLicenseType = (selectedLicense === 'Desktop' ? font.price_desktop : selectedLicense === 'Business' ? font.price_business : font.price_corporate) ?? 0;
+    const originalPriceForSelection = basePriceForLicenseType * userCount;
 
-    const itemToAdd = {
-      id: `${font.id}-${selectedLicense}-${userCount}`,
+    const itemToAdd: Omit<CartItem, 'id'> = {
       fontId: font.id,
       name: font.name,
       license: selectedLicense,
       price: totalPrice,
-      originalPrice: basePrice * userCount,
+      originalPrice: originalPriceForSelection,
       users: userCount,
       imageUrl: font.main_image_url,
       discountName: activeDiscount?.name || null,
       discountPercentage: activeDiscount?.percentage || null,
+      basePricePerUser: basePriceForLicenseType,
     };
+    
     addToCart(itemToAdd);
-    toast.success(`${font.name} (${selectedLicense}) added to cart!`);
+    // PERBAIKAN: Baris toast.success dihapus dari sini.
+    // Notifikasi sekarang ditangani sepenuhnya di dalam CartContext.
   };
 
   const getPriceForType = (type: LicenseType) => {
@@ -133,7 +134,6 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
                     <span className="font-bold">{activeDiscount.name}</span> is active! Enjoy {activeDiscount.percentage}% off.
                 </p>
             </div>
-            {/* UPDATE: Menampilkan tanggal mulai dan berakhir */}
             <p className="text-xs text-green-700 mt-1 ml-7">
                 Valid from {formatDate(activeDiscount.start_date)} to {formatDate(activeDiscount.end_date)}.
             </p>

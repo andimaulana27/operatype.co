@@ -1,76 +1,145 @@
-// src/app/(main)/partners/page.tsx
+// src/app/(main)/partners/[slug]/page.tsx
 
-// PERBAIKAN: Menambahkan revalidate = 0
-// Baris ini akan memaksa Next.js untuk selalu mengambil data partner terbaru
-// dari database setiap kali halaman ini dibuka. Ini akan menyelesaikan masalah
-// di mana partner yang sudah dihapus masih muncul.
+// Menghapus caching agar data selalu terbaru
 export const revalidate = 0;
 
-import Link from 'next/link';
-import Image from 'next/image';
-import SectionTitle from '@/components/SectionTitle';
 import { supabase } from '@/lib/supabaseClient';
-import { Database } from '@/lib/database.types'; // Impor tipe Database
+import { notFound } from 'next/navigation';
+import { Database } from '@/lib/database.types';
+import { FontWithDetailsForCard } from '@/components/ProductCard';
+import SectionTitle from '@/components/SectionTitle';
+import SearchInput from '@/components/SearchInput';
+import FilterDropdown from '@/components/FilterDropdown';
+import ProductCard from '@/components/ProductCard';
+import Pagination from '@/components/Pagination';
 
-// Menggunakan tipe Partner dari file definisi tipe
 type Partner = Database['public']['Tables']['partners']['Row'];
 
-// Fungsi untuk mengambil data semua partner
-async function getPartners(): Promise<Partner[]> {
-  const { data, error } = await supabase
+const ITEMS_PER_PAGE = 24;
+
+// Komponen halaman sekarang menjadi Server Component tunggal yang menangani semua logika
+export default async function PartnerDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  // 1. Ambil data partner berdasarkan slug
+  const { data: partner, error: partnerError } = await supabase
     .from('partners')
     .select('*')
-    .order('name', { ascending: true }); // Menambahkan pengurutan agar konsisten
+    .eq('slug', params.slug)
+    .single();
 
-  if (error) {
-    console.error('Error fetching partners:', error);
-    return [];
+  if (partnerError || !partner) {
+    notFound(); // Tampilkan 404 jika partner tidak ditemukan
   }
-  return data || [];
-}
 
-const PartnerCard = ({ name, description, logoUrl, slug }: { name: string; description: string; logoUrl: string | null; slug: string; }) => (
-  <div className="text-center flex flex-col items-center">
-    <div className="relative w-full h-24 mb-6">
-      {/* Menambahkan placeholder jika logo_url null */}
-      <Image src={logoUrl || '/placeholder-logo.png'} alt={`${name} logo`} layout="fill" objectFit="contain" />
-    </div>
-    <h3 className="text-2xl font-medium text-brand-black">{name}</h3>
-    <p className="font-light text-brand-gray-1 mt-2 max-w-xs mx-auto">{description}</p>
-    <Link href={`/partners/${slug}`}>
-      <span className="inline-block mt-4 text-brand-orange font-medium hover:underline">
-        View Fonts &rarr;
-      </span>
-    </Link>
-  </div>
-);
+  // 2. Baca state filter dan pencarian dari URL
+  const searchTerm = typeof searchParams.search === 'string' ? searchParams.search : '';
+  const sortBy = typeof searchParams.sort === 'string' ? searchParams.sort : 'Newest';
+  const currentPage = typeof searchParams.page === 'string' ? Number(searchParams.page) : 1;
+  
+  const sortOptions = ["Newest", "Oldest", "Price: Low to High", "Price: High to Low", "A to Z", "Z to A"];
 
-export default async function PartnersPage() {
-  const partners = await getPartners();
+  // 3. Bangun query untuk mengambil font berdasarkan filter dari URL
+  let query = supabase
+    .from('fonts')
+    .select('*, font_discounts(discounts(*))', { count: 'exact' })
+    .eq('partner_id', partner.id)
+    .eq('status', 'Published');
+
+  if (searchTerm) {
+    query = query.ilike('name', `%${searchTerm}%`);
+  }
+
+  const isPriceSort = sortBy.includes('Price');
+  if (!isPriceSort) {
+      if (sortBy === 'Newest') query = query.order('created_at', { ascending: false });
+      else if (sortBy === 'Oldest') query = query.order('created_at', { ascending: true });
+      else if (sortBy === 'A to Z') query = query.order('name', { ascending: true });
+      else if (sortBy === 'Z to A') query = query.order('name', { ascending: false });
+  }
+
+  // 4. Eksekusi query
+  const { data: fontsData, error: fontsError, count } = await query;
+  let fonts: FontWithDetailsForCard[] = fontsData || [];
+
+  // 5. Lakukan sorting harga di server
+  if (isPriceSort && fonts) {
+      fonts.sort((a, b) => {
+          const getFinalPrice = (font: FontWithDetailsForCard) => {
+              const now = new Date();
+              const activeDiscount = font.font_discounts
+                  .map(fd => fd.discounts)
+                  .find(d => 
+                      d && d.is_active &&
+                      d.start_date && new Date(d.start_date) <= now &&
+                      d.end_date && new Date(d.end_date) >= now
+                  );
+              const originalPrice = font.price_desktop || 0;
+              if (activeDiscount?.percentage) {
+                  return originalPrice - (originalPrice * activeDiscount.percentage / 100);
+              }
+              return originalPrice;
+          };
+          const priceA = getFinalPrice(a);
+          const priceB = getFinalPrice(b);
+          return sortBy === 'Price: Low to High' ? priceA - priceB : priceB - priceA;
+      });
+  }
+
+  // 6. Lakukan paginasi di server
+  const totalItems = count || 0;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const paginatedFonts = fonts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <div className="bg-brand-white">
-      <div className="container mx-auto px-4 py-16">
+      <div className="container mx-auto px-4 pt-16 pb-8">
         <SectionTitle 
-          title="Our Partners"
-          subtitle="Meet the talented designers and foundries we are proud to collaborate with."
+          title={partner.name}
+          subtitle={partner.subheadline}
         />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mt-16">
-          {partners.length > 0 ? (
-            partners.map(partner => (
-              <PartnerCard 
-                key={partner.id}
-                name={partner.name}
-                description={partner.subheadline}
-                logoUrl={partner.logo_url}
-                slug={partner.slug}
-              />
-            ))
-          ) : (
-            <p className="text-center col-span-3 text-brand-gray-1">No partners have been added yet.</p>
-          )}
-        </div>
       </div>
+
+      <section className="container mx-auto px-4 py-4">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="relative w-full md:w-1/3">
+            <SearchInput placeholder="Search font by name..." />
+          </div>
+          
+          <div className="flex w-full md:w-auto items-center gap-4">
+            <FilterDropdown 
+                label="Sort by:" 
+                paramName="sort"
+                options={sortOptions} 
+            />
+          </div>
+        </div>
+        <div className="border-b border-brand-black mt-6"></div>
+      </section>
+
+      <section className="container mx-auto px-4 pt-8 pb-24">
+        {fonts.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {paginatedFonts.map(font => (
+                <ProductCard key={font.id} font={font} />
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+              />
+            )}
+          </>
+        ) : (
+          <p className="text-center text-brand-gray-1">No fonts found for this partner yet.</p>
+        )}
+      </section>
     </div>
   );
 }

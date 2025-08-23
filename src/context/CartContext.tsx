@@ -1,10 +1,10 @@
 // src/context/CartContext.tsx
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import toast from 'react-hot-toast'; // DIPERBARUI: Menggunakan react-hot-toast
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import toast from 'react-hot-toast';
 
-// DIPERBARUI: Menambahkan properti diskon ke tipe CartItem
+// Tipe data untuk item di keranjang
 export interface CartItem {
   id: string;
   fontId: string;
@@ -13,23 +13,32 @@ export interface CartItem {
   price: number;
   users: number;
   imageUrl: string | null;
-  originalPrice: number; // Harga asli sebelum diskon
-  discountName: string | null; // Nama promo diskon
-  discountPercentage: number | null; // Persentase diskon
+  originalPrice: number;
+  discountName: string | null;
+  discountPercentage: number | null;
+  basePricePerUser: number; 
 }
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (item: CartItem) => void;
+  addToCart: (item: Omit<CartItem, 'id'>) => void;
   removeFromCart: (itemId: string) => void;
+  clearCart: () => void; // 1. Tambahkan fungsi clearCart
   cartTotal: number;
   itemCount: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+function usePrevious<T>(value: T): T | undefined {
+  const ref = useRef<T>();
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref.current;
+}
+
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  // BARU: Memuat keranjang dari localStorage saat aplikasi pertama kali dibuka
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -43,34 +52,71 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     return [];
   });
 
-  // BARU: Menyimpan keranjang ke localStorage setiap kali ada perubahan
+  const prevCartItems = usePrevious(cartItems);
+
   useEffect(() => {
+    if (prevCartItems === undefined) {
+      return;
+    }
+
+    if (cartItems.length > prevCartItems.length) {
+      const newItem = cartItems[cartItems.length - 1];
+      toast.success(`${newItem.name} (${newItem.license}) added to cart!`);
+    } else if (cartItems.length === prevCartItems.length && cartItems.length > 0) {
+      for (let i = 0; i < cartItems.length; i++) {
+        if (cartItems[i].users !== prevCartItems[i].users) {
+          const updatedItem = cartItems[i];
+          toast.success(`${updatedItem.name} (${updatedItem.license}) updated to ${updatedItem.users} users.`);
+          break;
+        }
+      }
+    }
+    
     try {
         localStorage.setItem('operatype-cart', JSON.stringify(cartItems));
     } catch (error) {
         console.error("Failed to save cart to localStorage", error);
     }
-  }, [cartItems]);
+  }, [cartItems, prevCartItems]);
 
-  const addToCart = (item: CartItem) => {
+  const addToCart = (newItem: Omit<CartItem, 'id'>) => {
     setCartItems(prevItems => {
-      // Cek apakah item dengan ID yang sama persis (termasuk lisensi dan jumlah user) sudah ada
-      const existingItem = prevItems.find(i => i.id === item.id);
+      const itemId = `${newItem.fontId}-${newItem.license}`;
+      const existingItem = prevItems.find(i => i.id === itemId);
+
       if (existingItem) {
-        toast.error(`${item.name} (${item.license}) is already in your cart.`);
-        return prevItems; // Jangan tambahkan jika sudah ada
+        return prevItems.map(item => {
+          if (item.id === itemId) {
+            const newUsers = item.users + newItem.users;
+            const newOriginalPrice = item.basePricePerUser * newUsers;
+            let newFinalPrice = newOriginalPrice;
+            if (item.discountPercentage) {
+              newFinalPrice = newOriginalPrice - (newOriginalPrice * item.discountPercentage / 100);
+            }
+            return { ...item, users: newUsers, originalPrice: newOriginalPrice, price: newFinalPrice };
+          }
+          return item;
+        });
+      } else {
+        return [...prevItems, { ...newItem, id: itemId }];
       }
-      return [...prevItems, item];
     });
-    // Notifikasi toast sudah ditangani oleh LicenseSelector, jadi tidak perlu di sini
   };
 
   const removeFromCart = (itemId: string) => {
+    const itemToRemove = cartItems.find(item => item.id === itemId);
     setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
-    toast.success('Item removed from cart.');
+    if (itemToRemove) {
+      toast.success(`${itemToRemove.name} removed from cart.`);
+    }
+  };
+
+  // 2. Definisikan logika untuk clearCart
+  const clearCart = () => {
+    setCartItems([]);
+    localStorage.removeItem('operatype-cart');
   };
   
-  // Kalkulasi total harga berdasarkan harga akhir (yang mungkin sudah didiskon)
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price, 0);
 
   return (
@@ -79,6 +125,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         cartItems, 
         addToCart, 
         removeFromCart, 
+        clearCart, // 3. Sediakan clearCart ke dalam context
         cartTotal,
         itemCount: cartItems.length,
       }}

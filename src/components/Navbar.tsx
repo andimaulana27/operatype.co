@@ -44,9 +44,9 @@ const navLinks = [
 
 const Navbar = () => {
   const pathname = usePathname();
-  // DIPERBARUI: Menggunakan 'itemCount' agar sesuai dengan CartContext
   const { itemCount } = useCart();
-  const { session } = useAuth();
+  // --- PERBAIKAN: Ambil state 'loading' dari useAuth ---
+  const { session, loading } = useAuth();
 
   return (
     <header className="bg-brand-white sticky top-0 z-50">
@@ -91,7 +91,6 @@ const Navbar = () => {
           <div className="flex items-center space-x-5">
             <Link href="/cart" aria-label="Shopping Cart" className="relative text-brand-black hover:text-brand-orange transition-colors">
               <CartIcon className="w-[26px] h-[26px]" />
-              {/* DIPERBARUI: Menggunakan 'itemCount' */}
               {itemCount > 0 && (
                 <span className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 bg-red-600 text-white text-xs rounded-full">
                   {itemCount}
@@ -101,13 +100,18 @@ const Navbar = () => {
             
             <div className="h-6 w-px bg-brand-orange"></div>
 
-            <Link 
-              href={session ? "/account" : "/login"} 
-              aria-label="Login or personal account" 
-              className={`transition-colors ${session ? 'text-brand-orange' : 'text-brand-black'} hover:text-brand-orange`}
-            >
-              <UserIcon className="w-[26px] h-[26px]" />
-            </Link>
+            {/* --- PERBAIKAN: Tampilkan area abu-abu saat loading, dan atur link berdasarkan sesi --- */}
+            {loading ? (
+              <div className="w-[26px] h-[26px] bg-gray-200 rounded-full animate-pulse"></div>
+            ) : (
+              <Link 
+                href={session ? "/account" : "/login"} 
+                aria-label="Login or personal account" 
+                className={`transition-colors ${session ? 'text-brand-orange' : 'text-brand-black'} hover:text-brand-orange`}
+              >
+                <UserIcon className="w-[26px] h-[26px]" />
+              </Link>
+            )}
           </div>
         </nav>
         <div className="border-b border-brand-black"></div>

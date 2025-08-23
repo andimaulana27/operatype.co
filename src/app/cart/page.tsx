@@ -6,15 +6,35 @@ import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import Link from 'next/link';
 import CountdownTimer from '@/components/CountdownTimer';
-import { Tag } from 'lucide-react'; // BARU: Impor ikon Tag
+import { Tag } from 'lucide-react';
+import PayPalWrapper from '@/components/PayPalButtons';
 
 export default function CartPage() {
   const { cartItems, removeFromCart, cartTotal } = useCart();
-  const { user, profile, logout } = useAuth();
+  const { user, profile, loading } = useAuth();
 
-  // BARU: Menghitung total harga asli sebelum diskon
   const originalTotal = cartItems.reduce((total, item) => total + (item.originalPrice || item.price), 0);
   const totalSavings = originalTotal - cartTotal;
+  
+  const LoggedInAs = () => {
+    if (loading) {
+        return (
+            <div className="animate-pulse">
+                <div className="h-5 bg-gray-300 rounded w-3/4 mb-3"></div>
+                <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+            </div>
+        );
+    }
+    if (user) {
+        return (
+            <>
+                <p><span className="font-light">Full Name :</span> {profile?.full_name || 'N/A'}</p>
+                <p><span className="font-light">Email Address :</span> {user.email}</p>
+            </>
+        );
+    }
+    return <Link href="/login" className="text-brand-orange hover:underline">Please log in to continue.</Link>;
+  };
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -38,14 +58,12 @@ export default function CartPage() {
               cartItems.map(item => (
                 <div key={item.id} className="flex items-center gap-4 border-b border-brand-gray-2 pb-4">
                   <div className="w-20 h-20 bg-brand-gray-2 rounded-md overflow-hidden relative">
-                    {/* Menggunakan placeholder jika imageUrl tidak ada */}
                     <Image src={item.imageUrl || '/placeholder.png'} alt={item.name} fill style={{ objectFit: 'cover' }} />
                   </div>
                   <div className="flex-grow">
                     <h4 className="font-medium">{item.name}</h4>
                     <p className="text-sm text-brand-gray-1">{item.license} License {item.users && `(${item.users} Users)`}</p>
                     
-                    {/* BARU: Menampilkan nama diskon jika ada */}
                     {item.discountPercentage && (
                         <div className="mt-1 flex items-center gap-1 text-xs text-green-600 font-semibold">
                            <Tag size={12}/>
@@ -58,7 +76,6 @@ export default function CartPage() {
                     </button>
                   </div>
                   <div className="font-medium text-right">
-                    {/* DIPERBARUI: Tampilan harga dengan rincian diskon */}
                     {item.discountPercentage ? (
                         <div>
                             <span className="text-gray-400 line-through text-sm">${item.originalPrice.toFixed(2)}</span>
@@ -79,23 +96,9 @@ export default function CartPage() {
         <div className="space-y-6">
           <div className="bg-brand-gray-2/50 rounded-lg p-6">
             <h3 className="text-lg font-medium mb-4">Logged in As</h3>
-            {user ? (
-              <>
-                <p><span className="font-light">Full Name :</span> {profile?.full_name || 'N/A'}</p>
-                <p><span className="font-light">Email Address :</span> {user.email}</p>
-                <button 
-                  onClick={logout}
-                  className="text-sm text-brand-orange hover:underline mt-2"
-                >
-                  Not you? Logout
-                </button>
-              </>
-            ) : (
-              <Link href="/login" className="text-brand-orange hover:underline">Please log in to continue.</Link>
-            )}
+            <LoggedInAs />
           </div>
           
-          {/* DIPERBARUI: Menampilkan rincian total pembayaran */}
           <div className="border border-brand-black rounded-lg p-6 space-y-3">
             <div className="flex justify-between items-center text-md">
               <span className="text-gray-600">Subtotal</span>
@@ -115,15 +118,16 @@ export default function CartPage() {
 
           <div>
             <h3 className="text-lg font-medium mb-4">Payment Method</h3>
-            <button className="w-full bg-brand-orange text-white text-lg font-medium py-4 rounded-full hover:bg-brand-orange-hover disabled:opacity-50" disabled={cartItems.length === 0 || !user}>
-              Pay with PayPal
-            </button>
+            {/* --- PERBAIKAN 2: Selalu tampilkan PayPalWrapper --- */}
+            <div className={!user ? 'opacity-50 cursor-not-allowed' : ''}>
+              <PayPalWrapper />
+            </div>
+            
             <p className="text-xs text-brand-gray-1 mt-4 text-center">
               Your receipt and download links will be sent to your dashboard profile after purchase.
             </p>
           </div>
         </div>
-
       </div>
     </div>
   );
