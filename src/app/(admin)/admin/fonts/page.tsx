@@ -5,9 +5,9 @@ import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Database } from '@/lib/database.types';
-import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle, Tag, Settings, X } from 'lucide-react';
+import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle, Tag, Settings, X, Edit } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { deleteFontAction, updateFontStatusAction, deleteDiscountAction } from '@/app/actions/fontActions';
+import { deleteFontAction, updateFontStatusAction, deleteDiscountAction, updateDiscountAction } from '@/app/actions/fontActions';
 
 // --- Tipe Data ---
 type FontRow = Database['public']['Tables']['fonts']['Row'];
@@ -15,6 +15,7 @@ type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type DiscountInsert = Database['public']['Tables']['discounts']['Insert'];
+type DiscountUpdate = Database['public']['Tables']['discounts']['Update'];
 type FontWithDetails = FontRow & {
   categories: Pick<Category, 'name'> | null;
   partners: Pick<Partner, 'name'> | null;
@@ -72,12 +73,44 @@ const DeleteConfirmationModal = ({
     );
 };
 
-const CreateDiscountModal = ({ isOpen, onClose, onSave, isLoading }: { isOpen: boolean, onClose: () => void, onSave: (data: DiscountInsert) => void, isLoading: boolean }) => {
+// UPDATE: Modal ini sekarang menangani Create dan Edit
+const DiscountFormModal = ({ 
+    isOpen, 
+    onClose, 
+    onSave, 
+    isLoading, 
+    initialData 
+}: { 
+    isOpen: boolean, 
+    onClose: () => void, 
+    onSave: (data: DiscountInsert | DiscountUpdate, id?: string) => void, 
+    isLoading: boolean,
+    initialData?: Discount | null 
+}) => {
     const [name, setName] = useState('');
     const [percentage, setPercentage] = useState<number | ''>('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [isActive, setIsActive] = useState(true);
+
+    const isEditMode = !!initialData;
+
+    useEffect(() => {
+        if (isOpen && initialData) {
+            setName(initialData.name || '');
+            setPercentage(initialData.percentage || '');
+            setStartDate(initialData.start_date ? new Date(initialData.start_date).toISOString().split('T')[0] : '');
+            setEndDate(initialData.end_date ? new Date(initialData.end_date).toISOString().split('T')[0] : '');
+            setIsActive(initialData.is_active ?? true);
+        } else if (isOpen && !initialData) {
+            // Reset form untuk mode Create
+            setName('');
+            setPercentage('');
+            setStartDate('');
+            setEndDate('');
+            setIsActive(true);
+        }
+    }, [isOpen, initialData]);
 
     if (!isOpen) return null;
 
@@ -91,13 +124,15 @@ const CreateDiscountModal = ({ isOpen, onClose, onSave, isLoading }: { isOpen: b
             toast.error('Percentage must be between 1 and 100.');
             return;
         }
-        onSave({ name, percentage, start_date: startDate, end_date: endDate, is_active: isActive });
+        
+        const saveData = { name, percentage, start_date: startDate, end_date: endDate, is_active: isActive };
+        onSave(saveData, initialData?.id);
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Create New Discount</h3>
+                <h3 className="text-lg leading-6 font-medium text-gray-900">{isEditMode ? 'Edit Discount' : 'Create New Discount'}</h3>
                 <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                     <div>
                         <label htmlFor="name" className="block text-sm font-medium text-gray-700">Discount Name</label>
@@ -123,7 +158,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSave, isLoading }: { isOpen: b
                     </div>
                     <div className="mt-6 flex justify-end gap-3">
                         <button type="button" onClick={onClose} disabled={isLoading} className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
-                        <button type="submit" disabled={isLoading} className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-brand-orange-hover disabled:opacity-50">{isLoading ? 'Saving...' : 'Create Discount'}</button>
+                        <button type="submit" disabled={isLoading} className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-brand-orange-hover disabled:opacity-50">{isLoading ? 'Saving...' : (isEditMode ? 'Update Discount' : 'Create Discount')}</button>
                     </div>
                 </form>
             </div>
@@ -189,12 +224,14 @@ const ManageDiscountsModal = ({
   onClose,
   discounts,
   onOpenConfirm,
+  onOpenEdit, // UPDATE: Tambah prop untuk membuka modal edit
   isLoading
 }: {
   isOpen: boolean;
   onClose: () => void;
   discounts: Discount[];
   onOpenConfirm: (discount: Discount) => void;
+  onOpenEdit: (discount: Discount) => void; // UPDATE
   isLoading: boolean;
 }) => {
   if (!isOpen) return null;
@@ -229,7 +266,15 @@ const ManageDiscountsModal = ({
                         {d.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium space-x-4">
+                      {/* UPDATE: Tombol Edit ditambahkan */}
+                      <button 
+                        onClick={() => onOpenEdit(d)}
+                        disabled={isLoading}
+                        className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50"
+                      >
+                        Edit
+                      </button>
                       <button 
                         onClick={() => onOpenConfirm(d)}
                         disabled={isLoading}
@@ -264,7 +309,6 @@ export default function ManageFontsPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [fontsToDelete, setFontsToDelete] = useState<FontWithDetails[]>([]);
-    const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
     const [isApplyDiscountModalOpen, setIsApplyDiscountModalOpen] = useState(false);
     const [activeDiscounts, setActiveDiscounts] = useState<Discount[]>([]);
     const [allDiscounts, setAllDiscounts] = useState<Discount[]>([]);
@@ -272,6 +316,10 @@ export default function ManageFontsPage() {
     const [isDiscountDeleteModalOpen, setIsDiscountDeleteModalOpen] = useState(false);
     const [discountToDelete, setDiscountToDelete] = useState<Discount | null>(null);
     const [isPending, startTransition] = useTransition();
+
+    // UPDATE: State untuk modal form diskon
+    const [isDiscountFormOpen, setIsDiscountFormOpen] = useState(false);
+    const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null);
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -352,16 +400,38 @@ export default function ManageFontsPage() {
       setDiscountToDelete(null);
     };
 
-    const handleCreateDiscount = async (discountData: DiscountInsert) => {
+    // UPDATE: Handler untuk membuka form diskon (Create)
+    const handleOpenCreateDiscount = () => {
+        setEditingDiscount(null);
+        setIsDiscountFormOpen(true);
+    };
+
+    // UPDATE: Handler untuk membuka form diskon (Edit)
+    const handleOpenEditDiscount = (discount: Discount) => {
+        setEditingDiscount(discount);
+        setIsDiscountFormOpen(true);
+    };
+
+    // UPDATE: Handler untuk menyimpan (Create atau Update)
+    const handleSaveDiscount = async (data: DiscountInsert | DiscountUpdate, id?: string) => {
         startTransition(async () => {
-            const { error } = await supabase.from('discounts').insert([discountData]);
-            if (error) {
-                toast.error(`Failed to create discount: ${error.message}`);
-            } else {
-                toast.success(`Discount "${discountData.name}" created successfully!`);
-                setIsDiscountModalOpen(false);
-                await fetchData();
+            if (id) { // Mode Edit
+                const result = await updateDiscountAction(id, data);
+                if (result.error) {
+                    toast.error(result.error);
+                } else {
+                    toast.success(result.success!);
+                }
+            } else { // Mode Create
+                const { error } = await supabase.from('discounts').insert([data as DiscountInsert]);
+                if (error) {
+                    toast.error(`Failed to create discount: ${error.message}`);
+                } else {
+                    toast.success(`Discount "${data.name}" created successfully!`);
+                }
             }
+            setIsDiscountFormOpen(false);
+            await fetchData();
         });
     };
     
@@ -441,13 +511,21 @@ export default function ManageFontsPage() {
 
     return (
         <div>
-            <CreateDiscountModal isOpen={isDiscountModalOpen} onClose={() => setIsDiscountModalOpen(false)} onSave={handleCreateDiscount} isLoading={isPending} />
+            {/* UPDATE: Menggunakan DiscountFormModal */}
+            <DiscountFormModal 
+                isOpen={isDiscountFormOpen} 
+                onClose={() => setIsDiscountFormOpen(false)} 
+                onSave={handleSaveDiscount} 
+                isLoading={isPending}
+                initialData={editingDiscount}
+            />
             <ApplyDiscountModal isOpen={isApplyDiscountModalOpen} onClose={() => setIsApplyDiscountModalOpen(false)} onApply={handleApplyDiscount} discounts={activeDiscounts} isLoading={isPending} selectedFontCount={selectedFonts.length} />
             <ManageDiscountsModal
               isOpen={isManageDiscountsModalOpen}
               onClose={() => setIsManageDiscountsModalOpen(false)}
               discounts={allDiscounts}
               onOpenConfirm={openDiscountDeleteModal}
+              onOpenEdit={handleOpenEditDiscount} // UPDATE
               isLoading={isPending}
             />
             <DeleteConfirmationModal 
@@ -474,7 +552,8 @@ export default function ManageFontsPage() {
                     <p className="text-gray-500 mt-1">Add, edit, and manage all your font products.</p>
                 </div>
                 <div className="flex gap-2">
-                   <button onClick={() => setIsDiscountModalOpen(true)} className="bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Create Discount</button>
+                   {/* UPDATE: Tombol ini sekarang memanggil handler baru */}
+                   <button onClick={handleOpenCreateDiscount} className="bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Create Discount</button>
                    <button onClick={() => setIsManageDiscountsModalOpen(true)} className="bg-gray-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2">
                     <Settings size={18} /> Manage Discounts
                    </button>
@@ -541,7 +620,12 @@ export default function ManageFontsPage() {
                                             <Image className="h-16 w-16 rounded-md object-cover" src={font.main_image_url || '/placeholder.png'} alt={font.name || 'Font image'} width={64} height={64} />
                                             <div>
                                                 <Link href={`/admin/fonts/edit/${font.id}`} className="font-medium text-gray-900 hover:text-brand-orange">{font.name}</Link>
-                                                {discountInfo && <span className="text-xs text-green-600 font-bold flex items-center gap-1"><Tag className="w-3 h-3"/>{discountInfo.name}</span>}
+                                                {discountInfo && (
+                                                    <div className="text-xs text-green-600 font-bold mt-1">
+                                                        <div className="flex items-center gap-1"><Tag className="w-3 h-3"/>{discountInfo.name} ({discountInfo.percentage}%)</div>
+                                                        <div className="font-normal text-gray-500">{formatDate(discountInfo.start_date)} - {formatDate(discountInfo.end_date)}</div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </td>

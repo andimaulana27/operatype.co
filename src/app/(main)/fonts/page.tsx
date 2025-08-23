@@ -13,10 +13,9 @@ import toast from 'react-hot-toast';
 // --- PERBAIKAN 1: Menggunakan tipe Discount lengkap ---
 type Discount = Database['public']['Tables']['discounts']['Row'];
 
-// Mengganti nama tipe agar lebih jelas dan cocok dengan komponen lain
+// Tipe ini sekarang konsisten dengan ProductCard dan mengambil data diskon lengkap
 type FontWithDetails = Database['public']['Tables']['fonts']['Row'] & {
   categories: { name: string } | null;
-  // Tipe `discounts` sekarang menggunakan `Discount` lengkap, bukan `Pick`
   font_discounts: { discounts: Discount | null }[];
 };
 
@@ -34,6 +33,7 @@ export default function AllFontsPage() {
   
   const [categoryOptions, setCategoryOptions] = useState<string[]>(['All']);
 
+  // Mengambil opsi kategori saat komponen dimuat
   useEffect(() => {
     const fetchCategories = async () => {
         const { data, error } = await supabase.from('categories').select('name').order('name');
@@ -44,24 +44,28 @@ export default function AllFontsPage() {
     fetchCategories();
   }, []);
 
+  // Fungsi utama untuk mengambil dan memfilter data font
   const fetchFonts = useCallback(async () => {
     setIsLoading(true);
 
     let query = supabase
       .from('fonts')
-      // --- PERBAIKAN 2: Mengubah query untuk mengambil semua data diskon ---
+      // --- PERBAIKAN 2: Query diubah untuk mengambil semua data diskon terkait ---
       .select('*, categories!inner(name), font_discounts(discounts(*))', { count: 'exact' })
-      .is('partner_id', null)
+      .is('partner_id', null) // Hanya font dari Operatype, bukan partner
       .eq('status', 'Published');
 
+    // Terapkan filter pencarian
     if (searchTerm) {
       query = query.ilike('name', `%${searchTerm}%`);
     }
     
+    // Terapkan filter kategori
     if (selectedCategory !== 'All') {
       query = query.eq('categories.name', selectedCategory);
     }
 
+    // Terapkan pengurutan non-harga di level database
     const isPriceSort = sortBy.includes('Price');
     if (!isPriceSort) {
         if (sortBy === 'Newest') query = query.order('created_at', { ascending: false });
@@ -70,6 +74,8 @@ export default function AllFontsPage() {
         else if (sortBy === 'Z to A') query = query.order('name', { ascending: false });
     }
     
+    // Eksekusi query
+    // Jika sorting berdasarkan harga, ambil semua data dulu baru di-sort di client
     const { data, error, count } = isPriceSort 
       ? await query 
       : await query.range((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE - 1);
@@ -80,8 +86,10 @@ export default function AllFontsPage() {
     } else {
         let processedData = (data as FontWithDetails[]) || [];
 
+        // --- PERBAIKAN 3: Logika sorting harga yang memperhitungkan diskon aktif ---
         if (isPriceSort) {
             processedData.sort((a, b) => {
+                // Helper function untuk mendapatkan harga final (setelah diskon)
                 const getFinalPrice = (font: FontWithDetails) => {
                     const now = new Date();
                     const activeDiscount = font.font_discounts
@@ -112,20 +120,24 @@ export default function AllFontsPage() {
     setIsLoading(false);
   }, [searchTerm, selectedCategory, sortBy, currentPage]);
 
+  // Efek untuk menjalankan fetchFonts dengan debounce saat filter berubah
   useEffect(() => {
     const debounceFetch = setTimeout(() => {
         fetchFonts();
-    }, 300);
+    }, 300); // Menunggu 300ms setelah user berhenti mengetik/memilih
 
     return () => clearTimeout(debounceFetch);
   }, [fetchFonts]);
 
+  // Memoize data yang akan ditampilkan di halaman saat ini
   const paginatedFonts = useMemo(() => {
+    // Jika sorting berdasarkan harga, paginasi dilakukan di client
     if (sortBy.includes('Price')) {
         const from = (currentPage - 1) * ITEMS_PER_PAGE;
         const to = from + ITEMS_PER_PAGE;
         return fonts.slice(from, to);
     }
+    // Jika tidak, data sudah dipaginasi oleh database
     return fonts;
   }, [fonts, currentPage, sortBy]);
 
@@ -151,7 +163,7 @@ export default function AllFontsPage() {
               value={searchTerm}
               onChange={(e) => {
                   setSearchTerm(e.target.value);
-                  setCurrentPage(1);
+                  setCurrentPage(1); // Reset ke halaman 1 saat mencari
               }}
               className="w-full bg-transparent text-brand-black pl-6 pr-12 py-3 border border-brand-black rounded-full placeholder:text-brand-gray-1 focus:outline-none focus:border-brand-orange transition-colors"
             />
@@ -165,7 +177,7 @@ export default function AllFontsPage() {
               value={selectedCategory}
               onChange={(value) => {
                   setSelectedCategory(value);
-                  setCurrentPage(1);
+                  setCurrentPage(1); // Reset ke halaman 1 saat filter
               }}
               options={categoryOptions}
             />
@@ -174,7 +186,7 @@ export default function AllFontsPage() {
               value={sortBy}
               onChange={(value) => {
                   setSortBy(value);
-                  setCurrentPage(1);
+                  setCurrentPage(1); // Reset ke halaman 1 saat sorting
               }}
               options={sortOptions}
             />
@@ -185,11 +197,10 @@ export default function AllFontsPage() {
 
       <section className="container mx-auto px-4 pt-8 pb-24">
         {isLoading ? (
-          <div className="text-center py-16">Loading fonts...</div>
+          <div className="text-center py-16 text-lg text-gray-500">Loading fonts...</div>
         ) : fonts.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {/* Tidak perlu lagi memberikan tipe eksplisit di sini karena sudah benar dari state */}
               {paginatedFonts.map((font) => (
                 <ProductCard key={font.id} font={font} />
               ))}

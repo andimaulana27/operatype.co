@@ -16,18 +16,21 @@ type ProductCardProps = {
 };
 
 // Helper function to find the currently active discount
+// PERBAIKAN: Logika diubah untuk mencari diskon aktif di seluruh relasi
 const getActiveDiscount = (fontDiscounts: FontWithDetailsForCard['font_discounts'] | null): Discount | null => {
     if (!fontDiscounts || fontDiscounts.length === 0) {
         return null;
     }
     const now = new Date();
-    // Find the first valid and active discount
+    // Cari relasi pertama yang diskonnya valid dan aktif
     const activeDiscountRelation = fontDiscounts.find(fd => {
         const discount = fd.discounts;
+        // Pastikan diskon ada dan aktif
         if (discount && discount.is_active) {
             const startDate = discount.start_date ? new Date(discount.start_date) : null;
             const endDate = discount.end_date ? new Date(discount.end_date) : null;
             
+            // Cek apakah tanggal hari ini berada dalam rentang valid
             const isStarted = !startDate || now >= startDate;
             const isNotExpired = !endDate || now <= endDate;
             
@@ -35,6 +38,7 @@ const getActiveDiscount = (fontDiscounts: FontWithDetailsForCard['font_discounts
         }
         return false;
     });
+    // Kembalikan data diskon jika ditemukan
     return activeDiscountRelation ? activeDiscountRelation.discounts : null;
 };
 

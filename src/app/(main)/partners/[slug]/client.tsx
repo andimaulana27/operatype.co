@@ -1,3 +1,4 @@
+// src/app/(main)/partners/[slug]/client.tsx
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -16,7 +17,7 @@ type Partner = Database['public']['Tables']['partners']['Row'];
 
 const ITEMS_PER_PAGE = 24;
 
-// Komponen sekarang menerima data awal sebagai props
+// Komponen ini menerima data awal dari Server Component (page.tsx)
 export default function PartnerDetailPageClient({ 
   partner, 
   initialFonts, 
@@ -34,22 +35,24 @@ export default function PartnerDetailPageClient({
   const [sortBy, setSortBy] = useState('Newest');
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Fungsi fetch hanya untuk paginasi atau filter, bukan untuk load awal
+  // Fungsi ini dipanggil setiap kali ada perubahan pada filter atau pencarian
   const fetchFilteredFonts = useCallback(async () => {
     setIsLoading(true);
 
     try {
       let query = supabase
         .from('fonts')
-        // PERBAIKAN: Query diubah untuk mengambil semua data diskon `discounts(*)`
+        // Query ini sudah benar, mengambil semua data diskon terkait
         .select('*, font_discounts(discounts(*))', { count: 'exact' })
         .eq('partner_id', partner.id)
         .eq('status', 'Published');
 
+      // Terapkan filter pencarian
       if (searchTerm) {
         query = query.ilike('name', `%${searchTerm}%`);
       }
       
+      // Terapkan pengurutan non-harga di database
       const isPriceSort = sortBy.includes('Price');
       if (!isPriceSort) {
           if (sortBy === 'Newest') query = query.order('created_at', { ascending: false });
@@ -58,19 +61,29 @@ export default function PartnerDetailPageClient({
           else if (sortBy === 'Z to A') query = query.order('name', { ascending: false });
       }
 
+      // Eksekusi query
       const { data: fontsData, error: fontsError, count } = await query;
       
       if (fontsError) throw fontsError;
       
       let processedData = (fontsData as FontWithDetailsForCard[]) || [];
 
+      // PERBAIKAN: Logika sorting harga sekarang memperhitungkan diskon aktif
       if (isPriceSort) {
         processedData.sort((a, b) => {
+            // Helper function untuk mendapatkan harga final setelah diskon
             const getFinalPrice = (font: FontWithDetailsForCard) => {
-                const discount = font.font_discounts?.[0]?.discounts;
+                const now = new Date();
+                const activeDiscount = font.font_discounts
+                    .map(fd => fd.discounts)
+                    .find(d => 
+                        d && d.is_active &&
+                        d.start_date && new Date(d.start_date) <= now &&
+                        d.end_date && new Date(d.end_date) >= now
+                    );
                 const originalPrice = font.price_desktop || 0;
-                if (discount && discount.percentage) {
-                    return originalPrice - (originalPrice * discount.percentage / 100);
+                if (activeDiscount && activeDiscount.percentage) {
+                    return originalPrice - (originalPrice * activeDiscount.percentage / 100);
                 }
                 return originalPrice;
             };
@@ -84,20 +97,25 @@ export default function PartnerDetailPageClient({
       setTotalItems(count || 0);
 
     } catch (error: any) {
-      toast.error(error.message || 'Failed to load partner data.');
+      toast.error(error.message || 'Failed to load partner fonts.');
     } finally {
       setIsLoading(false);
     }
   }, [partner.id, searchTerm, sortBy]);
 
+  // Gunakan useEffect untuk memanggil fetch dengan debounce
   useEffect(() => {
-    // Jalankan fetch hanya jika ada perubahan filter, bukan saat load pertama
-    const debounceFetch = setTimeout(() => {
-        fetchFilteredFonts();
-    }, 300);
-    return () => clearTimeout(debounceFetch);
-  }, [fetchFilteredFonts]);
+    // Jangan jalankan fetch saat komponen pertama kali render dengan data awal
+    // Cukup jalankan saat filter berubah
+    if (fonts !== initialFonts) {
+        const debounceFetch = setTimeout(() => {
+            fetchFilteredFonts();
+        }, 300);
+        return () => clearTimeout(debounceFetch);
+    }
+  }, [searchTerm, sortBy, fetchFilteredFonts, fonts, initialFonts]);
   
+  // Memoize data yang akan ditampilkan di halaman saat ini
   const paginatedFonts = useMemo(() => {
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE;
@@ -150,8 +168,8 @@ export default function PartnerDetailPageClient({
       </section>
 
       <section className="container mx-auto px-4 pt-8 pb-24">
-        {isLoading ? (
-          <p className="text-center text-brand-gray-1">Filtering fonts...</p>
+        {isLoading && fonts === initialFonts ? (
+            <p className="text-center text-brand-gray-1">Loading fonts...</p>
         ) : fonts.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">

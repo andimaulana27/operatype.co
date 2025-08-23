@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
 import { Database } from '@/lib/database.types';
 import { Tag } from 'lucide-react';
-import toast from 'react-hot-toast'; // BARU: Menambahkan import yang hilang
+import toast from 'react-hot-toast';
 
 // Tipe data dari Supabase untuk konsistensi
 type FontData = Database['public']['Tables']['fonts']['Row'];
@@ -17,6 +17,16 @@ type LicenseSelectorProps = {
 };
 
 type LicenseType = 'Desktop' | 'Business' | 'Corporate';
+
+// Fungsi bantuan untuk memformat tanggal
+const formatDate = (dateString: string | null) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+    });
+};
 
 const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
   const [selectedLicense, setSelectedLicense] = useState<LicenseType>('Desktop');
@@ -116,10 +126,16 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
     <div>
       <h2 className="text-2xl font-medium">Choose Your License</h2>
       {activeDiscount && (
-          <div className="my-4 p-3 bg-green-100 border border-green-200 text-green-800 rounded-lg flex items-center gap-2">
-            <Tag className="w-5 h-5"/>
-            <p className="text-sm font-medium">
-                <span className="font-bold">{activeDiscount.name}</span> is active! Enjoy {activeDiscount.percentage}% off.
+          <div className="my-4 p-3 bg-green-100 border border-green-200 text-green-800 rounded-lg">
+            <div className="flex items-center gap-2">
+                <Tag className="w-5 h-5 flex-shrink-0"/>
+                <p className="text-sm font-medium">
+                    <span className="font-bold">{activeDiscount.name}</span> is active! Enjoy {activeDiscount.percentage}% off.
+                </p>
+            </div>
+            {/* UPDATE: Menampilkan tanggal mulai dan berakhir */}
+            <p className="text-xs text-green-700 mt-1 ml-7">
+                Valid from {formatDate(activeDiscount.start_date)} to {formatDate(activeDiscount.end_date)}.
             </p>
           </div>
       )}

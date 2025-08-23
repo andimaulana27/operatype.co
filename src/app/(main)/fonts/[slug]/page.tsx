@@ -1,4 +1,8 @@
 // src/app/(main)/fonts/[slug]/page.tsx
+
+// Baris ini memaksa halaman untuk selalu mengambil data terbaru dari database.
+export const revalidate = 0;
+
 import { supabase } from "@/lib/supabaseClient";
 import { notFound } from "next/navigation";
 import Image from "next/image";
@@ -12,31 +16,33 @@ import SectionHeader from '@/components/SectionHeader';
 import { FileIcon, ArchiveIcon, FolderIcon } from '@/components/icons';
 import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
+import { FontWithDetailsForCard } from "@/components/ProductCard";
 
-// Tipe data untuk konsistensi (Tidak ada perubahan)
+// Tipe data untuk konsistensi
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
   partners: { name: string } | null;
   categories: { name: string } | null;
   font_discounts: { discounts: Discount | null }[];
 };
-type RelatedFont = FontDetail;
 
-// Fungsi-fungsi (Tidak ada perubahan)
-async function getFontBySlug(slug: string): Promise<FontDetail> {
+// Fungsi untuk mengambil data font berdasarkan slug
+async function getFontBySlug(slug: string): Promise<FontDetail | null> {
   const { data, error } = await supabase
     .from('fonts')
     .select(`*, partners(name), categories(name), font_discounts(discounts(*))`)
     .eq('slug', slug)
     .single();
 
-  if (error || !data) {
-    notFound();
+  if (error) {
+    console.error(`Error fetching font with slug "${slug}":`, error.message);
+    return null;
   }
   return data as FontDetail;
 }
 
-async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
+// Fungsi untuk mengambil font terkait
+async function getRelatedFonts(currentId: string): Promise<FontWithDetailsForCard[]> {
     const { data, error } = await supabase
     .from('fonts')
     .select('*, partners(name), categories(name), font_discounts(discounts(*))')
@@ -47,7 +53,7 @@ async function getRelatedFonts(currentId: string): Promise<RelatedFont[]> {
     console.error('Error fetching related fonts:', error);
     return [];
   }
-  return data as RelatedFont[];
+  return data as FontWithDetailsForCard[];
 }
 
 
@@ -56,8 +62,12 @@ export default async function FontDetailPage({
 }: { 
     params: { slug: string } 
 }) {
-// ==============================================================
   const font = await getFontBySlug(params.slug);
+  
+  if (!font) {
+    notFound();
+  }
+
   const relatedFonts = await getRelatedFonts(font.id);
   
   const dynamicFontFamilyRegular = `dynamic-${font.slug}-Regular`;
@@ -88,9 +98,10 @@ export default async function FontDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           
           <div className="w-full lg:col-span-2">
+            {/* PERBAIKAN 1: Memastikan galleryImages selalu array string */}
             <FontImageGallery 
               mainImage={font.main_image_url}
-              galleryImages={font.gallery_image_urls as string[] || []}
+              galleryImages={Array.isArray(font.gallery_image_urls) ? font.gallery_image_urls as string[] : []}
             />
             <TypeTester 
               fontFamilyRegular={dynamicFontFamilyRegular}
@@ -165,19 +176,22 @@ export default async function FontDetailPage({
                <div>
                 <SectionHeader title="Feature Product" />
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                  {(font.product_information as string[] || []).map((info: string) => <li key={info}>{info}</li>)}
+                  {/* PERBAIKAN 2: Memastikan product_information selalu array string */}
+                  {(Array.isArray(font.product_information) ? font.product_information as string[] : []).map((info: string) => <li key={info}>{info}</li>)}
                 </ul>
               </div>
               <div>
                 <SectionHeader title="Styles" />
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                  {(font.styles as string[] || []).map((style: string) => <li key={style}>{style}</li>)}
+                  {/* PERBAIKAN 3: Memastikan styles selalu array string */}
+                  {(Array.isArray(font.styles) ? font.styles as string[] : []).map((style: string) => <li key={style}>{style}</li>)}
                 </ul>
               </div>
               <div>
                 <SectionHeader title="Tags" />
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                  {(font.tags as string[] || []).map((tag: string) => <li key={tag}>{tag}</li>)}
+                  {/* PERBAIKAN 4: Memastikan tags selalu array string */}
+                  {(Array.isArray(font.tags) ? font.tags as string[] : []).map((tag: string) => <li key={tag}>{tag}</li>)}
                 </ul>
               </div>
             </div>

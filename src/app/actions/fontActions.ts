@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { Database } from '@/lib/database.types';
 
 type FontFormData = Partial<Database['public']['Tables']['fonts']['Row']>;
+type DiscountUpdate = Partial<Database['public']['Tables']['discounts']['Update']>;
 type FileUrls = {
   main_image_url: string | null;
   gallery_image_urls: string[];
@@ -12,6 +13,8 @@ type FileUrls = {
   display_font_regular_url: string | null;
   display_font_italic_url: string | null;
 };
+
+// ... (fungsi-fungsi sebelumnya seperti deleteFontAction, addFontAction, dll. tetap di sini) ...
 
 export async function deleteFontAction(fontId: string, fileUrls: any) {
   const supabaseAdmin = createClient(
@@ -217,11 +220,13 @@ export async function deleteDiscountAction(discountId: string) {
   );
 
   try {
+    // Hapus dulu relasi di font_discounts
     await supabaseAdmin
       .from('font_discounts')
       .delete()
       .eq('discount_id', discountId);
 
+    // Baru hapus diskonnya
     const { error: discountError } = await supabaseAdmin
       .from('discounts')
       .delete()
@@ -232,8 +237,38 @@ export async function deleteDiscountAction(discountId: string) {
     }
 
     revalidatePath('/admin/fonts');
+    revalidatePath('/'); // Revalidate homepage juga
+    // Perlu revalidate semua halaman font, cara paling mudah revalidate path /fonts
+    revalidatePath('/fonts');
 
     return { success: 'Discount deleted successfully.' };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+// --- FUNGSI BARU UNTUK UPDATE DISKON ---
+export async function updateDiscountAction(discountId: string, updateData: DiscountUpdate) {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    const { error } = await supabaseAdmin
+      .from('discounts')
+      .update(updateData)
+      .eq('id', discountId);
+
+    if (error) {
+      throw new Error(`Failed to update discount: ${error.message}`);
+    }
+    
+    revalidatePath('/admin/fonts');
+    revalidatePath('/');
+    revalidatePath('/fonts');
+    
+    return { success: 'Discount updated successfully!' };
   } catch (error: any) {
     return { error: error.message };
   }

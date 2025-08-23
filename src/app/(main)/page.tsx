@@ -1,5 +1,11 @@
 // src/app/(main)/page.tsx
 
+// PERBAIKAN 1: Menambahkan revalidate = 0
+// Baris ini memastikan halaman utama selalu mengambil data terbaru dari database
+// setiap kali diakses. Ini akan menyelesaikan masalah diskon atau perubahan
+// lain yang tidak langsung tampil.
+export const revalidate = 0;
+
 import Image from 'next/image';
 import Link from 'next/link';
 import ProductCard from '@/components/ProductCard';
@@ -7,40 +13,37 @@ import SectionTitle from '@/components/SectionTitle';
 import HeroCarousel from '@/components/HeroCarousel';
 import { supabase } from '@/lib/supabaseClient';
 import { Database } from '@/lib/database.types';
+import { FontWithDetailsForCard } from '@/components/ProductCard'; // Menggunakan tipe yang sama persis dengan ProductCard
 
-type Discount = Database['public']['Tables']['discounts']['Row'];
-type FontForCard = Database['public']['Tables']['fonts']['Row'] & {
-  font_discounts: { discounts: Discount | null }[];
-};
-
-// Mengambil font yang ditempatkan di seksi "featured"
-async function getFeaturedFonts(): Promise<FontForCard[]> {
+// Fungsi untuk mengambil font yang ditandai sebagai "featured" di admin panel.
+async function getFeaturedFonts(): Promise<FontWithDetailsForCard[]> {
+  // PERBAIKAN 2: Query ini sudah benar dan akan mengambil semua data diskon terkait.
   const { data, error } = await supabase
     .from('fonts')
     .select('*, font_discounts(discounts(*))')
-    .eq('homepage_section', 'featured') // Mengambil font dari seksi 'featured'
-    .order('homepage_order', { ascending: true }); // Mengurutkan berdasarkan urutan yang disimpan
+    .eq('homepage_section', 'featured')
+    .order('homepage_order', { ascending: true });
 
   if (error) {
     console.error('Error fetching featured fonts:', error);
     return [];
   }
-  return data as FontForCard[];
+  return data as FontWithDetailsForCard[];
 }
 
-// Mengambil font yang ditempatkan di seksi "curated"
-async function getCuratedFonts(): Promise<FontForCard[]> {
+// Fungsi untuk mengambil font yang ditandai sebagai "curated" di admin panel.
+async function getCuratedFonts(): Promise<FontWithDetailsForCard[]> {
   const { data, error } = await supabase
     .from('fonts')
     .select('*, font_discounts(discounts(*))')
-    .eq('homepage_section', 'curated') // Mengambil font dari seksi 'curated'
-    .order('homepage_order', { ascending: true }); // Mengurutkan berdasarkan urutan yang disimpan
+    .eq('homepage_section', 'curated')
+    .order('homepage_order', { ascending: true });
 
   if (error) {
     console.error('Error fetching curated fonts:', error);
     return [];
   }
-  return data as FontForCard[];
+  return data as FontWithDetailsForCard[];
 }
 
 // --- DATA STATIS (Tidak ada perubahan) ---
@@ -58,6 +61,7 @@ const instagramImages = [
 ];
 
 export default async function HomePage() {
+  // Memanggil fungsi untuk mengambil data font terbaru.
   const featuredFonts = await getFeaturedFonts();
   const curatedFonts = await getCuratedFonts();
 
@@ -89,6 +93,7 @@ export default async function HomePage() {
         <div className="container mx-auto px-4">
           <SectionTitle title="Our Featured Collection" subtitle="A curated selection of our most popular and newest script fonts, handpicked for you." />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Melewatkan data font lengkap ke ProductCard */}
             {featuredFonts.map(font => <ProductCard key={font.id} font={font} />)}
           </div>
           <div className="text-center mt-16">
@@ -104,6 +109,7 @@ export default async function HomePage() {
         <div className="container mx-auto px-4">
           <SectionTitle title="Curated Selections" subtitle="Our handpicked fonts and community's bestsellers." />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Melewatkan data font lengkap ke ProductCard */}
             {curatedFonts.map(font => <ProductCard key={font.id} font={font} />)}
           </div>
         </div>
