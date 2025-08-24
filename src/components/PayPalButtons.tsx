@@ -24,13 +24,24 @@ const PayPalWrapper = () => {
     intent: "capture",
   };
 
+  // --- PERBAIKAN: Tangkap detail pembayaran dari PayPal ---
   const handleApprove = async (data: any, actions: any) => {
     try {
-      await actions.order.capture();
+      const details = await actions.order.capture();
       
       startTransition(async () => {
         toast.loading('Processing your order...');
-        const result = await createOrderAction(cartItems, cartTotal);
+        
+        // Siapkan detail transaksi untuk dikirim ke Server Action
+        const transactionDetails = {
+          orderId: details.id,
+          payerEmail: details.payer.email_address,
+          payerName: `${details.payer.name.given_name} ${details.payer.name.surname}`,
+        };
+        
+        // Kirim detail transaksi bersama item keranjang
+        const result = await createOrderAction(cartItems, transactionDetails);
+        
         toast.dismiss();
 
         if (result.error) {
@@ -50,10 +61,9 @@ const PayPalWrapper = () => {
   return (
     <PayPalScriptProvider options={initialOptions}>
       <PayPalButtons
-        // --- PERBAIKAN: Gunakan prop 'disableFunding' seperti ini ---
         style={{ layout: "vertical", shape: "pill" }}
         disabled={isPending || cartItems.length === 0 || !cartTotal}
-        fundingSource="paypal" // <-- Tambahkan ini untuk hanya menampilkan PayPal
+        fundingSource="paypal"
         createOrder={(data, actions) => {
           return actions.order.create({
             intent: "CAPTURE",

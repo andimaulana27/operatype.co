@@ -4,46 +4,50 @@
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { CartItem } from '@/context/CartContext'; // Kita akan butuh tipe data ini
+import { CartItem } from '@/context/CartContext';
+
+// --- PERBAIKAN: Tambahkan detail transaksi ke data yang disimpan ---
+type TransactionDetails = {
+  orderId: string; // ID dari PayPal
+  payerEmail: string;
+  payerName: string;
+};
 
 export async function createOrderAction(
   cartItems: CartItem[], 
-  totalAmount: number
+  transactionDetails: TransactionDetails // Tambahkan ini
 ) {
   const supabase = createServerActionClient({ cookies });
 
-  // 1. Dapatkan informasi user yang sedang login
   const { data: { user } } = await supabase.auth.getUser();
-
   if (!user) {
     return { error: 'You must be logged in to make a purchase.' };
   }
-
-  // 2. Validasi data
   if (!cartItems || cartItems.length === 0) {
     return { error: 'Your cart is empty.' };
   }
 
-  // 3. Siapkan data untuk dimasukkan ke tabel 'orders'
+  // Siapkan data pesanan dengan detail dari PayPal
   const ordersToInsert = cartItems.map(item => ({
     user_id: user.id,
     font_id: item.fontId,
     amount: item.price,
     license_type: item.license,
     user_count: item.users,
+    transaction_id: transactionDetails.orderId, // Simpan ID transaksi PayPal
+    invoice_id: `INV-${Date.now()}-${user.id.substring(0, 4)}`, // Buat ID invoice unik
   }));
 
   try {
-    // 4. Masukkan semua data pesanan ke database
     const { error } = await supabase.from('orders').insert(ordersToInsert);
-
     if (error) {
-      console.error('Error creating order:', error);
       throw new Error(`Failed to save order: ${error.message}`);
     }
 
-    // 5. Revalidate path untuk memperbarui cache halaman akun
     revalidatePath('/account');
+
+    // Nanti di sini kita akan memanggil fungsi pengiriman email
+    // await sendConfirmationEmailsAction(user, ordersToInsert, transactionDetails);
 
     return { success: 'Your order has been placed successfully!' };
 
