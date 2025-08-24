@@ -4,6 +4,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { Database } from '@/lib/database.types';
+import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 // Tipe untuk data gabungan
 export type UserWithProfile = {
@@ -134,4 +136,40 @@ export async function getUserDetails(userId: string): Promise<{ data: UserDetail
         console.error("Error fetching user details:", error.message);
         return { data: null, error: error.message };
     }
+}
+
+// --- FUNGSI BARU UNTUK EDIT PROFIL ---
+export async function updateProfileAction(formData: FormData) {
+    const supabase = createServerActionClient({ cookies });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'You are not authenticated.' };
+
+    const fullName = String(formData.get('fullName'));
+    if (!fullName) return { error: 'Full name is required.' };
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ full_name: fullName })
+        .eq('id', user.id);
+    
+    if (error) return { error: error.message };
+
+    revalidatePath('/account/edit-profile');
+    return { success: 'Profile updated successfully!' };
+}
+
+// --- FUNGSI BARU UNTUK UBAH KATA SANDI ---
+export async function changePasswordAction(formData: FormData) {
+    const newPassword = String(formData.get('newPassword'));
+    const confirmPassword = String(formData.get('confirmPassword'));
+
+    if (newPassword.length < 6) return { error: 'Password must be at least 6 characters.' };
+    if (newPassword !== confirmPassword) return { error: 'Passwords do not match.' };
+    
+    const supabase = createServerActionClient({ cookies });
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) return { error: error.message };
+
+    return { success: 'Password changed successfully!' };
 }

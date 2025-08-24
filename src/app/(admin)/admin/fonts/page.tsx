@@ -9,7 +9,7 @@ import { Database } from '@/lib/database.types';
 import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle, Tag, Settings, X, Edit } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { deleteFontAction, updateFontStatusAction, deleteDiscountAction, updateDiscountAction, createDiscountAction } from '@/app/actions/fontActions';
-import AdminPagination from '@/components/admin/AdminPagination'; // 1. Impor komponen baru
+import AdminPagination from '@/components/admin/AdminPagination';
 
 // --- Tipe Data ---
 type FontRow = Database['public']['Tables']['fonts']['Row'];
@@ -18,10 +18,12 @@ type Partner = Database['public']['Tables']['partners']['Row'];
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type DiscountInsert = Database['public']['Tables']['discounts']['Insert'];
 type DiscountUpdate = Database['public']['Tables']['discounts']['Update'];
+
+// --- PERBAIKAN 1: Sesuaikan Tipe Data ---
 type FontWithDetails = FontRow & {
   categories: Pick<Category, 'name'> | null;
   partners: Pick<Partner, 'name'> | null;
-  orders: [{ count: number }];
+  order_items: [{ count: number }]; // Diubah dari 'orders'
   font_discounts: { discounts: Discount | null }[];
 };
 
@@ -296,7 +298,6 @@ const ManageDiscountsModal = ({
 };
 
 export default function ManageFontsPage() {
-    // --- Semua state (Tidak ada perubahan) ---
     const [fonts, setFonts] = useState<FontWithDetails[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [partners, setPartners] = useState<Partner[]>([]);
@@ -318,11 +319,11 @@ export default function ManageFontsPage() {
     const [isDiscountFormOpen, setIsDiscountFormOpen] = useState(false);
     const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null);
 
-    // --- Semua fungsi (Tidak ada perubahan) ---
     const fetchData = async () => {
         setIsLoading(true);
+        // --- PERBAIKAN 2: Ubah query untuk menggunakan 'order_items' ---
         const [fontsResult, categoriesResult, partnersResult, allDiscountsResult] = await Promise.all([
-            supabase.from('fonts').select(`*, categories(name), partners(name), orders(count), font_discounts(discounts(*))`).order('created_at', { ascending: false }),
+            supabase.from('fonts').select(`*, categories(name), partners(name), order_items(count), font_discounts(discounts(*))`).order('created_at', { ascending: false }),
             supabase.from('categories').select('*'),
             supabase.from('partners').select('*'),
             supabase.from('discounts').select('*').order('created_at', { ascending: false })
@@ -402,7 +403,7 @@ export default function ManageFontsPage() {
         setEditingDiscount(null);
         setIsDiscountFormOpen(true);
     };
-
+    
     const handleOpenEditDiscount = (discount: Discount) => {
         setEditingDiscount(discount);
         setIsDiscountFormOpen(true);
@@ -410,20 +411,14 @@ export default function ManageFontsPage() {
 
     const handleSaveDiscount = async (data: DiscountInsert | DiscountUpdate, id?: string) => {
         startTransition(async () => {
-            if (id) { // Mode Edit
+            if (id) {
                 const result = await updateDiscountAction(id, data);
-                if (result.error) {
-                    toast.error(result.error);
-                } else {
-                    toast.success(result.success!);
-                }
-            } else { // Mode Create (Panggil Server Action)
+                if (result.error) { toast.error(result.error); } 
+                else { toast.success(result.success!); }
+            } else {
                 const result = await createDiscountAction(data as DiscountInsert);
-                if (result.error) {
-                    toast.error(result.error);
-                } else {
-                    toast.success(result.success!);
-                }
+                if (result.error) { toast.error(result.error); } 
+                else { toast.success(result.success!); }
             }
             setIsDiscountFormOpen(false);
             await fetchData();
@@ -445,11 +440,8 @@ export default function ManageFontsPage() {
             if (discountId) {
                 const recordsToInsert = selectedFonts.map(fontId => ({ font_id: fontId, discount_id: discountId }));
                 const { error: insertError } = await supabase.from('font_discounts').insert(recordsToInsert);
-                if (insertError) {
-                    toast.error(`Failed to apply discount: ${insertError.message}`);
-                } else {
-                    toast.success(`Discount successfully applied to ${selectedFonts.length} font(s).`);
-                }
+                if (insertError) { toast.error(`Failed to apply discount: ${insertError.message}`); } 
+                else { toast.success(`Discount successfully applied to ${selectedFonts.length} font(s).`); }
             } else {
                 toast.success(`Discounts removed from ${selectedFonts.length} font(s).`);
             }
@@ -478,9 +470,8 @@ export default function ManageFontsPage() {
     const handleDeleteDiscount = (id: string) => {
       startTransition(async () => {
         const result = await deleteDiscountAction(id);
-        if (result.error) {
-          toast.error(result.error);
-        } else {
+        if (result.error) { toast.error(result.error); } 
+        else {
           toast.success(result.success!);
           fetchData(); 
         }
@@ -506,40 +497,14 @@ export default function ManageFontsPage() {
 
     return (
         <div>
-            {/* --- Bagian Render (Tidak ada perubahan) --- */}
-            <DiscountFormModal 
-                isOpen={isDiscountFormOpen} 
-                onClose={() => setIsDiscountFormOpen(false)} 
-                onSave={handleSaveDiscount} 
-                isLoading={isPending}
-                initialData={editingDiscount}
-            />
+            {/* Modal Components */}
+            <DiscountFormModal isOpen={isDiscountFormOpen} onClose={() => setIsDiscountFormOpen(false)} onSave={handleSaveDiscount} isLoading={isPending} initialData={editingDiscount} />
             <ApplyDiscountModal isOpen={isApplyDiscountModalOpen} onClose={() => setIsApplyDiscountModalOpen(false)} onApply={handleApplyDiscount} discounts={activeDiscounts} isLoading={isPending} selectedFontCount={selectedFonts.length} />
-            <ManageDiscountsModal
-              isOpen={isManageDiscountsModalOpen}
-              onClose={() => setIsManageDiscountsModalOpen(false)}
-              discounts={allDiscounts}
-              onOpenConfirm={openDiscountDeleteModal}
-              onOpenEdit={handleOpenEditDiscount}
-              isLoading={isPending}
-            />
-            <DeleteConfirmationModal 
-                isOpen={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                onConfirm={confirmDelete}
-                itemsToDelete={fontsToDelete}
-                itemType="font"
-                isLoading={isPending}
-            />
-            <DeleteConfirmationModal 
-                isOpen={isDiscountDeleteModalOpen}
-                onClose={() => setIsDiscountDeleteModalOpen(false)}
-                onConfirm={confirmDiscountDelete}
-                itemsToDelete={discountToDelete ? [discountToDelete] : []}
-                itemType="discount"
-                isLoading={isPending}
-            />
+            <ManageDiscountsModal isOpen={isManageDiscountsModalOpen} onClose={() => setIsManageDiscountsModalOpen(false)} discounts={allDiscounts} onOpenConfirm={openDiscountDeleteModal} onOpenEdit={handleOpenEditDiscount} isLoading={isPending} />
+            <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} itemsToDelete={fontsToDelete} itemType="font" isLoading={isPending} />
+            <DeleteConfirmationModal isOpen={isDiscountDeleteModalOpen} onClose={() => setIsDiscountDeleteModalOpen(false)} onConfirm={confirmDiscountDelete} itemsToDelete={discountToDelete ? [discountToDelete] : []} itemType="discount" isLoading={isPending} />
 
+            {/* Main Content */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800">Manage Fonts</h1>
@@ -548,9 +513,7 @@ export default function ManageFontsPage() {
                 </div>
                 <div className="flex gap-2">
                    <button onClick={handleOpenCreateDiscount} className="bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Create Discount</button>
-                   <button onClick={() => setIsManageDiscountsModalOpen(true)} className="bg-gray-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2">
-                    <Settings size={18} /> Manage Discounts
-                   </button>
+                   <button onClick={() => setIsManageDiscountsModalOpen(true)} className="bg-gray-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"><Settings size={18} /> Manage Discounts</button>
                   <Link href="/admin/fonts/new"><span className="bg-brand-orange text-white font-medium py-2 px-4 rounded-lg hover:bg-brand-orange-hover transition-colors flex items-center gap-2"><PlusCircle className="w-5 h-5" /> Add New Font</span></Link>
                 </div>
             </div>
@@ -623,15 +586,10 @@ export default function ManageFontsPage() {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <SwitchToggle
-                                            label=""
-                                            checked={!!font.is_bestseller}
-                                            onChange={() => handleStatusUpdate(font.id, { is_bestseller: !font.is_bestseller })}
-                                        />
-                                    </td>
+                                    <td className="px-6 py-4"><SwitchToggle label="" checked={!!font.is_bestseller} onChange={() => handleStatusUpdate(font.id, { is_bestseller: !font.is_bestseller })}/></td>
                                     <td className="px-6 py-4"><StatusBadge status={font.status} /></td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">{font.orders[0]?.count || 0}</td>
+                                    {/* --- PERBAIKAN 3: Ubah cara mengakses hitungan sales --- */}
+                                    <td className="px-6 py-4 text-sm text-gray-500">{font.order_items[0]?.count || 0}</td>
                                     <td className="px-6 py-4 text-sm text-gray-500">
                                         {discountedPrice !== null ? (
                                             <div>
@@ -656,14 +614,7 @@ export default function ManageFontsPage() {
                 </table>
             </div>
             
-            {/* 2. Ganti paginasi lama dengan komponen baru */}
-            {!isLoading && totalPages > 1 && (
-                <AdminPagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={(page) => setCurrentPage(page)}
-                />
-            )}
+            <AdminPagination currentPage={currentPage} totalPages={totalPages} onPageChange={(page) => setCurrentPage(page)} />
         </div>
     );
 }

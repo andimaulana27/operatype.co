@@ -80,3 +80,15 @@ export const DownloadIcon = ({ className }: { className?: string }) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
   </svg>
 );
+
+export const FolderArrowDownIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3H4.5v6" />
+  </svg>
+);
+
+export const ReceiptPercentIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-12a2.25 2.25 0 012.25-2.25h5.318a2.25 2.25 0 011.628.732l4.94 5.582a2.25 2.25 0 01.628 1.628V18a2.25 2.25 0 01-2.25 2.25H7.5A2.25 2.25 0 015.25 18V6c0-1.242 1.008-2.25 2.25-2.25zM15 9.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+    </svg>
+);
