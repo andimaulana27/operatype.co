@@ -7,8 +7,8 @@ import { Database } from '@/lib/database.types';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Mendefinisikan tipe data yang lebih spesifik untuk email
-type OrderWithFont = Database['public']['Tables']['orders']['Row'] & {
+// PERBAIKAN: Menggunakan 'order_items' bukan 'orders'
+type OrderWithFont = Database['public']['Tables']['order_items']['Row'] & {
     fonts: { name: string | null } | null;
 };
 

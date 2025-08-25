@@ -17,9 +17,10 @@ export type UserWithProfile = {
 };
 
 // Tipe untuk detail pengguna tunggal
-type Order = Database['public']['Tables']['orders']['Row'];
+// PERBAIKAN: Menggunakan 'order_items' bukan 'orders'
+type OrderItem = Database['public']['Tables']['order_items']['Row'];
 type Font = Database['public']['Tables']['fonts']['Row'];
-type OrderWithFont = Order & {
+type OrderWithFont = OrderItem & {
   fonts: Pick<Font, 'name' | 'main_image_url' | 'slug'> | null;
 };
 
@@ -29,7 +30,7 @@ export type UserDetail = {
   role: string | null;
   created_at: string | undefined;
   email: string | undefined;
-  orders: OrderWithFont[];
+  orders: OrderWithFont[]; // Nama properti tetap 'orders' untuk konsistensi
 };
 
 
@@ -113,8 +114,9 @@ export async function getUserDetails(userId: string): Promise<{ data: UserDetail
 
         if (profileError && profileError.code !== 'PGRST116') throw profileError;
         
+        // PERBAIKAN: Menggunakan 'order_items' bukan 'orders'
         const { data: orders, error: ordersError } = await supabaseAdmin
-            .from('orders')
+            .from('order_items')
             .select(`*, fonts ( name, main_image_url, slug )`)
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
