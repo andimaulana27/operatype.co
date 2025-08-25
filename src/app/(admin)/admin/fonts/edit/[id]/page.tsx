@@ -105,21 +105,21 @@ export default function EditFontPage() {
         name: data.name,
         slug: data.slug,
         description: data.description,
-        is_bestseller: data.is_bestseller,
-        tags: data.tags || [],
+        is_bestseller: data.is_bestseller ?? false, // <-- PERBAIKAN DI SINI
+        tags: (data.tags as string[]) || [],
         price_desktop: data.price_desktop,
         price_business: data.price_business,
         price_corporate: data.price_corporate,
         glyph_string: data.glyph_string,
         file_types: data.file_types,
         file_size: data.file_size,
-        product_information: data.product_information || [],
-        styles: data.styles || [],
+        product_information: (data.product_information as string[]) || [],
+        styles: (data.styles as string[]) || [],
         status: data.status as 'Published' | 'Draft',
         category_id: data.category_id,
         partner_id: data.partner_id,
       });
-      setExistingImageUrls({ main: data.main_image_url || '', gallery: data.gallery_image_urls || [] });
+      setExistingImageUrls({ main: data.main_image_url || '', gallery: (data.gallery_image_urls as string[]) || [] });
       setIsLoading(false);
     };
 
