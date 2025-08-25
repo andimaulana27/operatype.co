@@ -1,80 +1,69 @@
 // src/app/(admin)/admin/dashboard/page.tsx
-import { supabase } from '@/lib/supabaseClient';
+import { createServerComponentClient, SupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { Database } from '@/lib/database.types';
 import Link from 'next/link';
 import SalesChart from '@/components/admin/SalesChart';
 
-// Mengambil tipe data dari database.types.ts
+// Tipe data diperbarui dan lebih spesifik
 type Profile = Database['public']['Tables']['profiles']['Row'];
-type Order = Database['public']['Tables']['orders']['Row'];
-type Font = Database['public']['Tables']['fonts']['Row'];
+type Purchase = Database['public']['Tables']['purchases']['Row'];
 
-// Tipe gabungan untuk pesanan terbaru
-type OrderWithDetails = Order & {
+type PurchaseWithDetails = Purchase & {
   profiles: Pick<Profile, 'full_name'> | null;
-  fonts: { name: string }[] | null;
 };
 
-// --- Fungsi Pengambilan Data Dinamis ---
-
-async function getDashboardStats() {
+// Fungsi diperbarui untuk menggunakan tabel baru dan tipe data yang jelas
+async function getDashboardStats(supabase: SupabaseClient<Database>) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const { data: monthOrders, error: monthError } = await supabase
-        .from('orders')
-        .select('amount')
+    const { data: monthPurchases } = await supabase
+        .from('purchases')
+        .select('total_amount')
         .gte('created_at', thirtyDaysAgo.toISOString());
 
-    // DIPERBARUI: Query ini sekarang menghitung total pelanggan (bukan admin)
-    const { count: totalCustomersCount, error: profilesError } = await supabase
+    const { count: totalCustomersCount } = await supabase
         .from('profiles')
         .select('id', { count: 'exact' })
-        .neq('role', 'admin'); // <-- Kondisi untuk tidak menghitung admin
+        .neq('role', 'admin');
 
-    const { count: fontCount, error: fontError } = await supabase
+    const { count: fontCount } = await supabase
         .from('fonts')
         .select('id', { count: 'exact' });
         
-    const totalRevenue = monthOrders?.reduce((sum, order) => sum + (order.amount || 0), 0) || 0;
+    const totalRevenue = monthPurchases?.reduce((sum: number, purchase) => sum + (purchase.total_amount || 0), 0) || 0;
+    const totalOrders = monthPurchases?.length || 0;
 
-    return {
-        totalRevenue: totalRevenue,
-        totalOrders: monthOrders?.length || 0,
-        totalCustomers: totalCustomersCount || 0, // <-- Nama properti diubah
-        totalFonts: fontCount || 0,
-    };
+    return { totalRevenue, totalOrders, totalCustomers: totalCustomersCount || 0, totalFonts: fontCount || 0 };
 }
 
-async function getRecentOrders(): Promise<OrderWithDetails[]> {
+async function getRecentPurchases(supabase: SupabaseClient<Database>): Promise<PurchaseWithDetails[]> {
     const { data, error } = await supabase
-        .from('orders')
+        .from('purchases')
         .select('*, profiles(full_name)')
         .order('created_at', { ascending: false })
         .limit(5);
     
-    if (error) {
-        console.error("Error fetching recent orders:", error);
-        return [];
-    }
-    return data as any[] as OrderWithDetails[];
+    if (error) { console.error("Error fetching recent purchases:", error); return []; }
+    return data as PurchaseWithDetails[];
 }
 
-async function getTopSellingFonts() {
+async function getTopSellingFonts(supabase: SupabaseClient<Database>) {
     const { data, error } = await supabase
-        .from('orders')
+        .from('order_items')
         .select('fonts(name)')
         .limit(100);
 
     if (error || !data) return [];
     
-    const salesCount = data.reduce((acc, order) => {
-        const fontName = order.fonts?.[0]?.name;
+    const salesCount = data.reduce((acc: Record<string, number>, item: { fonts: { name: string | null } | null }) => {
+        const fontName = item.fonts?.name;
         if (fontName) {
             acc[fontName] = (acc[fontName] || 0) + 1;
         }
         return acc;
-    }, {} as Record<string, number>);
+    }, {});
 
     return Object.entries(salesCount)
         .sort(([, a], [, b]) => b - a)
@@ -82,65 +71,66 @@ async function getTopSellingFonts() {
         .map(([name, sales]) => ({ name, sales }));
 }
 
-async function getSalesDataForChart() {
+// --- FUNGSI DENGAN PERBAIKAN FINAL ---
+async function getSalesDataForChart(supabase: SupabaseClient<Database>) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const { data, error } = await supabase
-        .from('orders')
-        .select('created_at, amount')
+        .from('purchases')
+        .select('created_at, total_amount')
         .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: true });
 
-    if (error) {
-        console.error("Error fetching sales data:", error);
-        return [];
-    }
+    if (error) { console.error("Error fetching sales data:", error); return []; }
     
-    const salesByDay = data.reduce((acc, order) => {
-        const date = new Date(order.created_at).toLocaleDateString('en-US', { weekday: 'short' });
-        const amount = order.amount || 0;
-        if (!acc[date]) {
-            acc[date] = 0;
-        }
-        acc[date] += amount;
-        return acc;
-    }, {} as Record<string, number>);
+    // **FIX 1**: Memberi tipe yang benar pada `reduce` dan menangani data yang mungkin `null`.
+    // Kita pastikan hanya memproses item yang `created_at` nya tidak null.
+    const salesByDay = data
+        .filter((purchase): purchase is { created_at: string; total_amount: number | null } => purchase.created_at !== null)
+        .reduce((acc: Record<string, number>, purchase) => {
+            const date = new Date(purchase.created_at).toLocaleDateString('en-US', { weekday: 'short' });
+            const amount = purchase.total_amount || 0; // Pastikan amount adalah number
+            
+            // Inisialisasi jika belum ada, lalu tambahkan amount
+            acc[date] = (acc[date] || 0) + amount;
+            return acc;
+        }, {}); // Nilai awal adalah objek kosong
 
+    // **FIX 2**: Memastikan tipe output `sales` adalah `number` sesuai ekspektasi komponen Chart.
     return Object.entries(salesByDay).map(([name, sales]) => ({
         name,
-        sales: parseFloat(sales.toFixed(2)),
+        sales: sales, // 'sales' di sini sudah dijamin `number` oleh logika di atas.
     }));
 }
 
-
-const StatCard = ({ title, value, change }: { title: string, value: string | number, change?: string }) => (
+const StatCard = ({ title, value }: { title: string, value: string | number }) => (
   <div className="bg-white p-6 rounded-lg shadow">
     <h3 className="text-gray-500 text-sm font-medium">{title}</h3>
     <p className="text-3xl font-semibold text-gray-800 mt-2">{value}</p>
-    {change && <p className="text-xs text-green-500 mt-1">{change}</p>}
   </div>
 );
 
-
 export default async function DashboardPage() {
-  const stats = await getDashboardStats();
-  const recentOrders = await getRecentOrders();
-  const topFonts = await getTopSellingFonts();
-  const salesData = await getSalesDataForChart();
+  const supabase = createServerComponentClient<Database>({ cookies });
+  const stats = await getDashboardStats(supabase);
+  const recentPurchases = await getRecentPurchases(supabase);
+  const topFonts = await getTopSellingFonts(supabase);
+  const salesData = await getSalesDataForChart(supabase);
 
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  }
 
   return (
     <div>
       <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
       <div className="w-24 h-1 bg-brand-orange my-4"></div>
 
-      {/* Grid Kartu Statistik */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
         <StatCard title="Total Revenue (Last 30 Days)" value={`$${stats.totalRevenue.toFixed(2)}`} />
         <StatCard title="Total Orders (Last 30 Days)" value={stats.totalOrders} />
-        {/* DIPERBARUI: Judul dan nilai kartu diubah */}
         <StatCard title="Total Customers" value={stats.totalCustomers} />
         <StatCard title="Total Fonts" value={stats.totalFonts} />
       </div>
@@ -150,7 +140,6 @@ export default async function DashboardPage() {
           <h3 className="font-semibold text-gray-800 mb-4">Sales Analytics (Last 7 Days)</h3>
           <SalesChart data={salesData} />
         </div>
-
         <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow">
           <h3 className="font-semibold text-gray-800">Top Selling Fonts</h3>
            <ul className="mt-4 space-y-2">
@@ -180,15 +169,13 @@ export default async function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {recentOrders.map(order => (
-                <tr key={order.id}>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{order.profiles?.full_name || 'N/A'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(order.created_at)}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${order.amount?.toFixed(2)}</td>
+              {recentPurchases.map(purchase => (
+                <tr key={purchase.id}>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{purchase.profiles?.full_name || 'N/A'}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(purchase.created_at)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${purchase.total_amount?.toFixed(2)}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      Completed
-                    </span>
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Completed</span>
                   </td>
                 </tr>
               ))}

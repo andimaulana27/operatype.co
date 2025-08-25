@@ -4,9 +4,10 @@
 import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import { Database } from "@/lib/database.types";
 
 export async function getSecureDownloadUrlAction(fontId: string) {
-  const supabase = createServerActionClient({ cookies });
+  const supabase = createServerActionClient<Database>({ cookies });
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -14,22 +15,22 @@ export async function getSecureDownloadUrlAction(fontId: string) {
   }
 
   // Gunakan Service Key untuk memeriksa data internal dengan aman
-  const supabaseAdmin = createClient(
+  const supabaseAdmin = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   // 1. Cek apakah pengguna pernah membeli font ini
-  const { data: orderData, error: orderError } = await supabaseAdmin
-    .from('orders')
+  const { data: orderItemData, error: orderItemError } = await supabaseAdmin
+    .from('order_items')
     .select('id')
     .eq('user_id', user.id)
     .eq('font_id', fontId)
     .limit(1)
     .single();
 
-  if (orderError || !orderData) {
-    return { error: "You have not purchased this font." };
+  if (orderItemError || !orderItemData) {
+    return { error: "Purchase not found. You cannot download this font." };
   }
 
   // 2. Jika pembelian valid, ambil path file dari tabel font
