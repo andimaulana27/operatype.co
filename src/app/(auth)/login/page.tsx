@@ -1,11 +1,11 @@
 // src/app/(auth)/login/page.tsx
-'use client'; // 1. Tambahkan 'use client' karena kita akan menggunakan state
+'use client'; 
 
 import Link from 'next/link';
 import { loginAction, registerAction } from '@/app/actions/authActions';
 import PasswordField from './PasswordField';
-import { useState } from 'react'; // 2. Impor useState
-import AuthLoader from '@/components/AuthLoader'; // 3. Impor komponen loader baru
+import { useState } from 'react';
+import AuthLoader from '@/components/AuthLoader';
 
 export default function LoginPage({
   searchParams,
@@ -14,11 +14,9 @@ export default function LoginPage({
 }) {
   const isRegisterView = searchParams.view === 'register';
 
-  // 4. Tambahkan state untuk loading dan pesan
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
 
-  // 5. Buat fungsi wrapper untuk menangani state loading
   const handleLoginSubmit = (formData: FormData) => {
     setLoading(true);
     setLoadingMessage('Logging in...');
@@ -34,7 +32,6 @@ export default function LoginPage({
   return (
       <div className="relative w-full max-w-4xl h-auto md:h-[650px] bg-white rounded-2xl shadow-lg overflow-hidden">
         
-        {/* 6. Tampilkan loader jika state loading aktif */}
         {loading && <AuthLoader message={loadingMessage} />}
         
         {searchParams.error && (
@@ -51,7 +48,6 @@ export default function LoginPage({
         <div className="absolute top-0 left-0 w-full h-full flex flex-col md:flex-row z-10">
           {/* Login Form */}
           <div className="w-full md:w-1/2 flex items-center justify-center p-8 md:p-12">
-            {/* 7. Ganti action dengan fungsi wrapper */}
             <form action={handleLoginSubmit} className="w-full text-center">
               <h2 className="text-3xl font-medium text-brand-black">Login</h2>
               <div className="w-16 h-0.5 bg-brand-orange mt-3 mb-8 mx-auto"></div>
@@ -66,7 +62,6 @@ export default function LoginPage({
                 <PasswordField name="password" placeholder="Password" />
               </div>
               <Link href="#" className="text-sm text-brand-orange hover:underline mt-4 block text-right">Forgot Password?</Link>
-              {/* 8. Ubah teks tombol berdasarkan state loading */}
               <button type="submit" disabled={loading} className="w-full mt-6 bg-brand-orange text-white font-medium py-4 rounded-full hover:bg-brand-orange-hover disabled:opacity-50">
                 {loading && loadingMessage === 'Logging in...' ? 'Logging in...' : 'Login'}
               </button>
@@ -75,7 +70,6 @@ export default function LoginPage({
 
           {/* Register Form */}
           <div className="w-full md:w-1/2 flex items-center justify-center p-8 md:p-12">
-             {/* 9. Ganti action dengan fungsi wrapper */}
             <form action={handleRegisterSubmit} className="w-full text-center">
               <h2 className="text-3xl font-medium text-brand-black">Registration</h2>
               <div className="w-16 h-0.5 bg-brand-orange mt-3 mb-8 mx-auto"></div>
@@ -101,7 +95,6 @@ export default function LoginPage({
                 <input type="checkbox" id="terms" name="terms" className="h-4 w-4 accent-brand-orange" required />
                 <label htmlFor="terms" className="ml-2 text-sm text-brand-gray-1">I agree to the Terms of Service and Privacy Policy.</label>
               </div>
-               {/* 10. Ubah teks tombol berdasarkan state loading */}
               <button type="submit" disabled={loading} className="w-full mt-6 bg-brand-orange text-white font-medium py-4 rounded-full hover:bg-brand-orange-hover disabled:opacity-50">
                 {loading && loadingMessage === 'Registering...' ? 'Registering...' : 'Register'}
               </button>
@@ -109,13 +102,16 @@ export default function LoginPage({
           </div>
         </div>
         
-        <div className={`absolute top-0 left-0 w-full md:w-1/2 h-full bg-brand-orange text-white flex items-center justify-center p-12 text-center rounded-2xl transition-transform duration-700 ease-in-out z-20 ${isRegisterView ? 'translate-x-0 md:translate-x-full' : 'translate-x-0'}`}>
+        {/* --- PERBAIKAN LOGIKA CSS DI SINI --- */}
+        <div className={`absolute top-0 left-0 w-full md:w-1/2 h-full bg-brand-orange text-white flex items-center justify-center p-12 text-center rounded-2xl transition-transform duration-700 ease-in-out z-20 ${isRegisterView ? 'translate-x-full' : 'translate-x-0'}`}>
           <div className="relative w-full h-full flex items-center justify-center">
+            {/* Konten untuk "Register" view */}
             <div className={`absolute transition-opacity duration-500 ${isRegisterView ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <h2 className="text-3xl font-medium">Hello, Friend!</h2>
               <p className="mt-4 font-light">Create an account and start exploring high quality typefaces.</p>
               <Link href="/login" className="mt-8 inline-block bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">Login Now</Link>
             </div>
+            {/* Konten untuk "Login" view */}
             <div className={`absolute transition-opacity duration-500 ${isRegisterView ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               <h2 className="text-3xl font-medium">Welcome Back!</h2>
               <p className="mt-4 font-light">Sign in to continue your creative journey.</p>
