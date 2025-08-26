@@ -1,11 +1,12 @@
 // src/app/(admin)/admin/dashboard/page.tsx
-import { createServerComponentClient, SupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js'; // PERBAIKAN: Import createClient standar
+import { SupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers'; // cookies masih dibutuhkan jika ada logic user-specific
 import { Database } from '@/lib/database.types';
 import Link from 'next/link';
 import SalesChart from '@/components/admin/SalesChart';
 
-// Tipe data diperbarui dan lebih spesifik
+// PERBAIKAN: Semua tipe data tetap sama
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Purchase = Database['public']['Tables']['purchases']['Row'];
 
@@ -13,7 +14,7 @@ type PurchaseWithDetails = Purchase & {
   profiles: Pick<Profile, 'full_name'> | null;
 };
 
-// Fungsi diperbarui untuk menggunakan tabel baru dan tipe data yang jelas
+// PERBAIKAN: Fungsi-fungsi ini sekarang menerima SupabaseClient sebagai argumen
 async function getDashboardStats(supabase: SupabaseClient<Database>) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -71,7 +72,6 @@ async function getTopSellingFonts(supabase: SupabaseClient<Database>) {
         .map(([name, sales]) => ({ name, sales }));
 }
 
-// --- FUNGSI DENGAN PERBAIKAN FINAL ---
 async function getSalesDataForChart(supabase: SupabaseClient<Database>) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -84,23 +84,18 @@ async function getSalesDataForChart(supabase: SupabaseClient<Database>) {
 
     if (error) { console.error("Error fetching sales data:", error); return []; }
     
-    // **FIX 1**: Memberi tipe yang benar pada `reduce` dan menangani data yang mungkin `null`.
-    // Kita pastikan hanya memproses item yang `created_at` nya tidak null.
     const salesByDay = data
         .filter((purchase): purchase is { created_at: string; total_amount: number | null } => purchase.created_at !== null)
         .reduce((acc: Record<string, number>, purchase) => {
             const date = new Date(purchase.created_at).toLocaleDateString('en-US', { weekday: 'short' });
-            const amount = purchase.total_amount || 0; // Pastikan amount adalah number
-            
-            // Inisialisasi jika belum ada, lalu tambahkan amount
+            const amount = purchase.total_amount || 0;
             acc[date] = (acc[date] || 0) + amount;
             return acc;
-        }, {}); // Nilai awal adalah objek kosong
+        }, {});
 
-    // **FIX 2**: Memastikan tipe output `sales` adalah `number` sesuai ekspektasi komponen Chart.
     return Object.entries(salesByDay).map(([name, sales]) => ({
         name,
-        sales: sales, // 'sales' di sini sudah dijamin `number` oleh logika di atas.
+        sales: sales,
     }));
 }
 
@@ -112,11 +107,20 @@ const StatCard = ({ title, value }: { title: string, value: string | number }) =
 );
 
 export default async function DashboardPage() {
-  const supabase = createServerComponentClient<Database>({ cookies });
-  const stats = await getDashboardStats(supabase);
-  const recentPurchases = await getRecentPurchases(supabase);
-  const topFonts = await getTopSellingFonts(supabase);
-  const salesData = await getSalesDataForChart(supabase);
+  // ==================== PERBAIKAN UTAMA ====================
+  // Menggunakan createClient dengan Service Role Key untuk melewati RLS
+  const supabaseAdmin = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+  // =========================================================
+
+  // Mengirimkan koneksi admin ke semua fungsi
+  const stats = await getDashboardStats(supabaseAdmin);
+  const recentPurchases = await getRecentPurchases(supabaseAdmin);
+  const topFonts = await getTopSellingFonts(supabaseAdmin);
+  const salesData = await getSalesDataForChart(supabaseAdmin);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';

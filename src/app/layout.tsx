@@ -14,6 +14,11 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: 'Operatype.co - High Quality Fonts',
   description: 'Crafting high quality fonts with passion and precision.',
+ 
+  icons: {
+    icon: '/favicon.png',
+  },
+
 }
 
 export default function RootLayout({
@@ -24,7 +29,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={poppins.className}>
-        {/* BARU: 2. Tambahkan komponen Toaster di sini */}
         <Toaster
           position="top-center"
           toastOptions={{

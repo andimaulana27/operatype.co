@@ -1,17 +1,16 @@
 // src/app/(admin)/admin/orders/page.tsx
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { useState, useEffect, useTransition } from 'react';
 import { Database } from '@/lib/database.types';
 import { Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AdminPagination from '@/components/admin/AdminPagination';
+import { getAdminOrdersAction } from '@/app/actions/orderActions'; // PERBAIKAN: Import Server Action
 
-// Tipe data diperbarui sesuai struktur baru
+// Tipe data disesuaikan dengan apa yang dikembalikan oleh action
 type Purchase = Database['public']['Tables']['purchases']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
-
 type PurchaseWithDetails = Purchase & {
   profiles: Pick<Profile, 'full_name' | 'email'> | null;
   order_items: { count: number }[];
@@ -21,49 +20,33 @@ const ITEMS_PER_PAGE = 15;
 
 export default function ManageOrdersPage() {
   const [purchases, setPurchases] = useState<PurchaseWithDetails[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, startTransition] = useTransition(); // PERBAIKAN: Menggunakan useTransition
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
 
+  // PERBAIKAN: Menggunakan useEffect untuk memanggil Server Action
   useEffect(() => {
     const fetchPurchases = async () => {
-      setIsLoading(true);
-      
-      const { data, error } = await supabase
-        .from('purchases')
-        .select(`*, profiles(full_name, email), order_items(count)`)
-        .order('created_at', { ascending: false });
+      startTransition(async () => {
+        const result = await getAdminOrdersAction(currentPage, ITEMS_PER_PAGE, searchTerm);
 
-      if (error) {
-        toast.error('Failed to fetch orders: ' + error.message);
-      } else {
-        setPurchases(data as PurchaseWithDetails[] || []);
-      }
-      setIsLoading(false);
+        if (result.error) {
+          toast.error('Failed to fetch orders: ' + result.error);
+          setPurchases([]);
+          setTotalOrders(0);
+        } else if (result.data) {
+          setPurchases(result.data as PurchaseWithDetails[]);
+          setTotalOrders(result.count || 0);
+        }
+      });
     };
+
     fetchPurchases();
-  }, []);
+  }, [currentPage, searchTerm]); // Efek ini akan berjalan saat halaman atau term pencarian berubah
 
-  const filteredPurchases = useMemo(() => {
-    if (!searchTerm) return purchases;
-    
-    return purchases.filter(purchase => {
-      const lowerCaseSearch = searchTerm.toLowerCase();
-      const customerName = purchase.profiles?.full_name?.toLowerCase() || '';
-      const customerEmail = purchase.profiles?.email?.toLowerCase() || '';
-      const invoiceId = purchase.invoice_id?.toLowerCase() || '';
-
-      return customerName.includes(lowerCaseSearch) || 
-             customerEmail.includes(lowerCaseSearch) ||
-             invoiceId.includes(lowerCaseSearch);
-    });
-  }, [purchases, searchTerm]);
-
-  const totalPages = Math.ceil(filteredPurchases.length / ITEMS_PER_PAGE);
-  const paginatedPurchases = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredPurchases.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredPurchases, currentPage]);
+  // PERBAIKAN: Logika filter dan paginasi di sisi klien dihapus karena sudah ditangani server
+  const totalPages = Math.ceil(totalOrders / ITEMS_PER_PAGE);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -109,7 +92,7 @@ export default function ManageOrdersPage() {
           <tbody className="divide-y divide-gray-200">
             {isLoading ? (
               <tr><td colSpan={5} className="text-center py-8">Loading orders...</td></tr>
-            ) : paginatedPurchases.length > 0 ? paginatedPurchases.map((purchase) => (
+            ) : purchases.length > 0 ? purchases.map((purchase) => (
               <tr key={purchase.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4">
                   <div className="font-medium text-gray-900">{purchase.profiles?.full_name || 'N/A'}</div>
@@ -123,7 +106,7 @@ export default function ManageOrdersPage() {
                 <td className="px-6 py-4 text-sm text-gray-500">{formatDate(purchase.created_at)}</td>
               </tr>
             )) : (
-              <tr><td colSpan={5} className="text-center py-8 text-gray-500">No orders found.</td></tr>
+              <tr><td colSpan={5} className="text-center py-8 text-gray-500">No orders found matching your criteria.</td></tr>
             )}
           </tbody>
         </table>
