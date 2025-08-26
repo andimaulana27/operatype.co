@@ -27,6 +27,9 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.ico?v=1.0',
   },
+  verification: {
+    google: '<meta name="google-site-verification" content="RZzYhZYznBzZ549pRN5uIk9tFl9I5ZSLFREHY9HD310" />', // Ganti dengan kode yang Anda dapatkan
+  },
 }
 // ===============================================================
 
