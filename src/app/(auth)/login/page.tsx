@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { loginAction, registerAction } from '@/app/actions/authActions';
 import PasswordField from './PasswordField';
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Import useEffect
 import AuthLoader from '@/components/AuthLoader';
 
 export default function LoginPage({
@@ -12,7 +12,13 @@ export default function LoginPage({
 }: {
   searchParams: { view?: string; error?: string; message?: string };
 }) {
-  const isRegisterView = searchParams.view === 'register';
+  // Gunakan state untuk mengontrol UI secara langsung dan sinkronkan dengan URL
+  const [isRegisterView, setIsRegisterView] = useState(searchParams.view === 'register');
+  
+  // Sinkronkan state dengan URL search params saat halaman dimuat atau saat navigasi maju/mundur
+  useEffect(() => {
+    setIsRegisterView(searchParams.view === 'register');
+  }, [searchParams.view]);
 
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
@@ -102,20 +108,30 @@ export default function LoginPage({
           </div>
         </div>
         
-        {/* --- PERBAIKAN LOGIKA CSS DI SINI --- */}
+        {/* --- Overlay yang digerakkan oleh State --- */}
         <div className={`absolute top-0 left-0 w-full md:w-1/2 h-full bg-brand-orange text-white flex items-center justify-center p-12 text-center rounded-2xl transition-transform duration-700 ease-in-out z-20 ${isRegisterView ? 'translate-x-full' : 'translate-x-0'}`}>
           <div className="relative w-full h-full flex items-center justify-center">
             {/* Konten untuk "Register" view */}
             <div className={`absolute transition-opacity duration-500 ${isRegisterView ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <h2 className="text-3xl font-medium">Hello, Friend!</h2>
               <p className="mt-4 font-light">Create an account and start exploring high quality typefaces.</p>
-              <Link href="/login" className="mt-8 inline-block bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">Login Now</Link>
+              <Link 
+                href="/login" 
+                onClick={() => setIsRegisterView(false)} // Update state saat diklik
+                className="mt-8 inline-block bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">
+                  Login Now
+              </Link>
             </div>
             {/* Konten untuk "Login" view */}
             <div className={`absolute transition-opacity duration-500 ${isRegisterView ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               <h2 className="text-3xl font-medium">Welcome Back!</h2>
               <p className="mt-4 font-light">Sign in to continue your creative journey.</p>
-              <Link href="/login?view=register" className="mt-8 inline-block bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">Register Now</Link>
+              <Link 
+                href="/login?view=register" 
+                onClick={() => setIsRegisterView(true)} // Update state saat diklik
+                className="mt-8 inline-block bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">
+                  Register Now
+              </Link>
             </div>
           </div>
         </div>
