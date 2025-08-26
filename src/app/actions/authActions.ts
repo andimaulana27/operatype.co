@@ -4,7 +4,7 @@
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache'; // 1. Impor revalidatePath
+import { revalidatePath } from 'next/cache';
 
 export async function loginAction(formData: FormData) {
   const email = String(formData.get('email'));
@@ -17,25 +17,26 @@ export async function loginAction(formData: FormData) {
   });
 
   if (error) {
-    console.error('Login error:', error.message);
-    return redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/login?error=${encodeURIComponent('Email atau password salah.')}`);
   }
 
-  // Cek role setelah login berhasil
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', data.user.id)
     .single();
 
-  // Arahkan ke dashboard admin jika role adalah admin, jika tidak ke homepage
-  if (profile?.role === 'admin') {
-    revalidatePath('/', 'layout'); // 2. Tambahkan revalidatePath untuk seluruh layout
-    return redirect('/admin/dashboard');
-  }
+  revalidatePath('/', 'layout');
+  
+  const role = profile?.role || 'user';
+  const successMessage = encodeURIComponent('Login berhasil! Selamat datang.');
 
-  revalidatePath('/', 'layout'); // 2. Tambahkan revalidatePath untuk seluruh layout
-  return redirect('/');
+  if (role === 'admin') {
+    return redirect(`/admin/dashboard?message=${successMessage}`);
+  } else {
+    // PERBAIKAN UTAMA: Arahkan user biasa ke /account
+    return redirect(`/account?message=${successMessage}`);
+  }
 }
 
 export async function registerAction(formData: FormData) {
@@ -60,17 +61,15 @@ export async function registerAction(formData: FormData) {
   });
 
   if (error) {
-    console.error('Registration error:', error.message);
     return redirect(`/login?view=register&error=${encodeURIComponent(error.message)}`);
   }
   
-  return redirect(`/login?message=${encodeURIComponent("Registration successful! Please check your email for verification.")}`);
+  return redirect(`/login?message=${encodeURIComponent("Registrasi berhasil! Silakan cek email Anda untuk verifikasi.")}`);
 }
 
 export async function logoutAction() {
   const supabase = createServerActionClient({ cookies });
   await supabase.auth.signOut();
-  
-  revalidatePath('/', 'layout'); // 3. Tambahkan revalidatePath untuk seluruh layout
-  redirect('/login');
+  revalidatePath('/', 'layout');
+  return redirect('/');
 }

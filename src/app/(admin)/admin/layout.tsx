@@ -3,6 +3,7 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Sidebar from '@/components/admin/Sidebar';
+// HAPUS: import ToastNotifier dari sini
 
 export default async function AdminLayout({
   children,
@@ -27,10 +28,9 @@ export default async function AdminLayout({
   }
 
   return (
-    // PERBAIKAN: Layout diubah untuk mengakomodasi garis pemisah
     <div className="flex h-screen bg-brand-gray-2">
+      {/* HAPUS: ToastNotifier dari sini */}
       <Sidebar />
-      {/* Garis Pemisah Vertikal */}
       <div className="w-px bg-brand-black"></div>
       <main className="flex-1 p-8 overflow-y-auto">
         {children}

@@ -5,9 +5,10 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTransition } from 'react';
 import Link from 'next/link';
-import { FolderArrowDownIcon, ReceiptPercentIcon, UserPencilIcon, KeyIcon, LogoutIcon } from '@/components/icons';
+import { FolderArrowDownIcon, ReceiptPercentIcon, KeyIcon, LogoutIcon } from '@/components/icons';
 import { logoutAction } from '@/app/actions/authActions';
 import toast from 'react-hot-toast';
+// HAPUS: import ToastNotifier dari sini karena sudah ada di layout utama
 
 const SidebarLink = ({ href, icon, text }: { href: string; icon: React.ReactNode; text: string; }) => {
   const pathname = usePathname();
@@ -58,6 +59,7 @@ export default function AccountLayout({
 
   return (
     <div className="bg-gray-50 min-h-screen">
+      {/* HAPUS: ToastNotifier dari sini */}
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-medium text-brand-black">My Dashboard</h1>
@@ -69,7 +71,6 @@ export default function AccountLayout({
           <aside className="lg:col-span-1">
             <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
               
-              {/* --- PERBAIKAN: Kembalikan Detail Akun ke Atas --- */}
               <div className="p-4 mb-4 border-b">
                 <p className="font-medium text-brand-black text-lg">{profile?.full_name}</p>
                 <p className="text-sm text-brand-gray-1 break-words">{user.email}</p>
