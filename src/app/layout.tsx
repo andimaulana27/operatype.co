@@ -11,15 +11,25 @@ const poppins = Poppins({
   weight: ['300', '500'],
 });
 
+// ==================== PERBAIKAN SEO DI SINI ====================
 export const metadata: Metadata = {
-  title: 'Operatype.co - High Quality Fonts',
-  description: 'Crafting high quality fonts with passion and precision.',
-  // --- PERBAIKAN DI SINI ---
-  // Menambahkan query string '?v=1.0' untuk memaksa browser mengunduh ulang ikon
+  // Judul default untuk situs Anda
+  title: {
+    default: 'Operatype.co - High Quality Script & Display Fonts',
+    template: '%s | Operatype.co', // Template untuk halaman lain (contoh: "About Us | Operatype.co")
+  },
+  // Deskripsi yang akan muncul di bawah judul pada hasil pencarian Google
+  description: 'Discover a curated library of high-quality, versatile script and display fonts. Complete with full character sets and commercial licenses, ready for any project.',
+  // Kata kunci untuk membantu Google memahami konten situs Anda
+  keywords: ['script fonts', 'display fonts', 'typography', 'font foundry', 'commercial fonts', 'operatype'],
+  // Informasi pembuat situs
+  authors: [{ name: 'Operatype.co' }],
+  // Ikon yang akan muncul di tab browser
   icons: {
-    icon: '/favicon.ico?v=1.0', 
+    icon: '/favicon.ico?v=1.0',
   },
 }
+// ===============================================================
 
 export default function RootLayout({
   children,
