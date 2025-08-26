@@ -4,7 +4,7 @@ import { Poppins } from 'next/font/google'
 import './globals.css'
 import { CartProvider } from '@/context/CartContext';
 import { AuthProvider } from '@/context/AuthContext';
-import { Toaster } from 'react-hot-toast'; // BARU: 1. Import Toaster
+import { Toaster } from 'react-hot-toast';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -14,11 +14,11 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: 'Operatype.co - High Quality Fonts',
   description: 'Crafting high quality fonts with passion and precision.',
- 
+  // --- PERBAIKAN DI SINI ---
+  // Menambahkan query string '?v=1.0' untuk memaksa browser mengunduh ulang ikon
   icons: {
-    icon: '/favicon.png',
+    icon: '/favicon.ico?v=1.0', 
   },
-
 }
 
 export default function RootLayout({
