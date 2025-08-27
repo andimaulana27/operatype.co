@@ -27,9 +27,12 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.ico?v=1.0',
   },
+  // ==================== PERBAIKAN DI SINI ====================
+  // Hanya masukkan kode unik dari atribut 'content', bukan seluruh tag HTML-nya.
   verification: {
-    google: '<meta name="google-site-verification" content="RZzYhZYznBzZ549pRN5uIk9tFl9I5ZSLFREHY9HD310" />', // Ganti dengan kode yang Anda dapatkan
+    google: 'RZzYhZYznBzZ549pRN5uIk9tFl9I5ZSLFREHY9HD310', // Ini adalah format yang benar
   },
+  // =========================================================
 }
 // ===============================================================
 
