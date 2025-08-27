@@ -4,42 +4,38 @@
 import Link from 'next/link';
 import { loginAction, registerAction } from '@/app/actions/authActions';
 import PasswordField from './PasswordField';
-import { useState, useEffect } from 'react'; // Import useEffect
-import AuthLoader from '@/components/AuthLoader';
+import { useState, useEffect, useTransition } from 'react';
 
 export default function LoginPage({
   searchParams,
 }: {
   searchParams: { view?: string; error?: string; message?: string };
 }) {
-  // Gunakan state untuk mengontrol UI secara langsung dan sinkronkan dengan URL
   const [isRegisterView, setIsRegisterView] = useState(searchParams.view === 'register');
+  // 1. Gunakan useTransition untuk menangani status loading dari Server Action
+  const [isPending, startTransition] = useTransition();
   
-  // Sinkronkan state dengan URL search params saat halaman dimuat atau saat navigasi maju/mundur
   useEffect(() => {
     setIsRegisterView(searchParams.view === 'register');
   }, [searchParams.view]);
-
-  const [loading, setLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('');
-
+  
+  // 2. Buat fungsi wrapper yang menggunakan startTransition
   const handleLoginSubmit = (formData: FormData) => {
-    setLoading(true);
-    setLoadingMessage('Logging in...');
-    loginAction(formData);
+    startTransition(() => {
+      loginAction(formData);
+    });
   };
 
   const handleRegisterSubmit = (formData: FormData) => {
-    setLoading(true);
-    setLoadingMessage('Registering...');
-    registerAction(formData);
+    startTransition(() => {
+      registerAction(formData);
+    });
   };
 
   return (
       <div className="relative w-full max-w-4xl h-auto md:h-[650px] bg-white rounded-2xl shadow-lg overflow-hidden">
         
-        {loading && <AuthLoader message={loadingMessage} />}
-        
+        {/* Notifikasi sekarang ditangani secara global oleh ToastNotifier di layout.tsx, jadi blok di bawah ini bisa dihapus atau dibiarkan sebagai fallback */}
         {searchParams.error && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-center animate-slide-down">
                 <p>{searchParams.error}</p>
@@ -54,6 +50,7 @@ export default function LoginPage({
         <div className="absolute top-0 left-0 w-full h-full flex flex-col md:flex-row z-10">
           {/* Login Form */}
           <div className="w-full md:w-1/2 flex items-center justify-center p-8 md:p-12">
+            {/* 3. Panggil wrapper di form action */}
             <form action={handleLoginSubmit} className="w-full text-center">
               <h2 className="text-3xl font-medium text-brand-black">Login</h2>
               <div className="w-16 h-0.5 bg-brand-orange mt-3 mb-8 mx-auto"></div>
@@ -68,8 +65,8 @@ export default function LoginPage({
                 <PasswordField name="password" placeholder="Password" />
               </div>
               <Link href="#" className="text-sm text-brand-orange hover:underline mt-4 block text-right">Forgot Password?</Link>
-              <button type="submit" disabled={loading} className="w-full mt-6 bg-brand-orange text-white font-medium py-4 rounded-full hover:bg-brand-orange-hover disabled:opacity-50">
-                {loading && loadingMessage === 'Logging in...' ? 'Logging in...' : 'Login'}
+              <button type="submit" disabled={isPending} className="w-full mt-6 bg-brand-orange text-white font-medium py-4 rounded-full hover:bg-brand-orange-hover disabled:opacity-50">
+                {isPending ? 'Logging in...' : 'Login'}
               </button>
             </form>
           </div>
@@ -101,8 +98,8 @@ export default function LoginPage({
                 <input type="checkbox" id="terms" name="terms" className="h-4 w-4 accent-brand-orange" required />
                 <label htmlFor="terms" className="ml-2 text-sm text-brand-gray-1">I agree to the Terms of Service and Privacy Policy.</label>
               </div>
-              <button type="submit" disabled={loading} className="w-full mt-6 bg-brand-orange text-white font-medium py-4 rounded-full hover:bg-brand-orange-hover disabled:opacity-50">
-                {loading && loadingMessage === 'Registering...' ? 'Registering...' : 'Register'}
+              <button type="submit" disabled={isPending} className="w-full mt-6 bg-brand-orange text-white font-medium py-4 rounded-full hover:bg-brand-orange-hover disabled:opacity-50">
+                {isPending ? 'Registering...' : 'Register'}
               </button>
             </form>
           </div>

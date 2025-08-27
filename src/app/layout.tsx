@@ -6,6 +6,7 @@ import { CartProvider } from '@/context/CartContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
+import ToastNotifier from '@/components/ToastNotifier'; // Ditambahkan untuk notifikasi global
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -27,12 +28,10 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.ico?v=1.0',
   },
-  // ==================== PERBAIKAN DI SINI ====================
-  // Hanya masukkan kode unik dari atribut 'content', bukan seluruh tag HTML-nya.
+  // Ini adalah kode verifikasi untuk Google Search Console
   verification: {
-    google: 'RZzYhZYznBzZ549pRN5uIk9tFl9I5ZSLFREHY9HD310', // Ini adalah format yang benar
+    google: 'RZZYhZYznBzZ549pRN5uIk9tFl9I5ZSLFREHY9HD310',
   },
-  // =========================================================
 }
 // ===============================================================
 
@@ -86,6 +85,7 @@ export default function RootLayout({
         />
         <AuthProvider>
           <CartProvider>
+            <ToastNotifier />
             {children}
           </CartProvider>
         </AuthProvider>
