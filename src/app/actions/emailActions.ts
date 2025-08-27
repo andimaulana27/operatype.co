@@ -7,7 +7,6 @@ import { Database } from '@/lib/database.types';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// PERBAIKAN: Menggunakan 'order_items' bukan 'orders'
 type OrderWithFont = Database['public']['Tables']['order_items']['Row'] & {
     fonts: { name: string | null } | null;
 };
@@ -22,14 +21,15 @@ type TransactionDetails = {
   payerName: string;
 };
 
-// Fungsi untuk mengirim email konfirmasi ke PEMBELI
+// ==================== PERUBAHAN UTAMA DI SINI ====================
 export async function sendPurchaseConfirmationEmail(
     userDetails: UserDetails,
     orders: OrderWithFont[],
-    transactionDetails: TransactionDetails
+    transactionDetails: TransactionDetails,
+    downloadLinks: { name: string; url: string }[], // Tambah parameter downloadLinks
+    invoicePdf: Buffer // Tambah parameter invoicePdf
 ) {
   try {
-    // Pastikan Anda mengganti 'noreply@yourdomain.com' dengan email dari domain yang sudah Anda verifikasi di Resend
     const { data, error } = await resend.emails.send({
       from: 'Operatype.co <noreply@operatype.co>', 
       to: userDetails.email,
@@ -38,7 +38,15 @@ export async function sendPurchaseConfirmationEmail(
         customerName: userDetails.full_name || transactionDetails.payerName,
         orderId: transactionDetails.orderId,
         orders: orders,
+        downloadLinks: downloadLinks, // Kirim props ke komponen email
       }),
+      // Tambahkan lampiran
+      attachments: [
+        {
+          filename: `invoice-${transactionDetails.orderId}.pdf`,
+          content: invoicePdf,
+        },
+      ],
     });
 
     if (error) {
@@ -51,8 +59,9 @@ export async function sendPurchaseConfirmationEmail(
     return { error: 'Failed to send confirmation email.' };
   }
 }
+// =================================================================
 
-// Fungsi untuk mengirim notifikasi penjualan ke ADMIN
+// Fungsi notifikasi admin tidak perlu diubah
 export async function sendAdminSaleNotification(
     userDetails: UserDetails,
     orders: OrderWithFont[],
@@ -60,7 +69,6 @@ export async function sendAdminSaleNotification(
 ) {
     const totalAmount = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
     try {
-        // Ganti 'admin@yourdomain.com' dengan alamat email Anda
         await resend.emails.send({
             from: 'Sales Alert <noreply@operatype.co>',
             to: 'admin@operatype.co', 

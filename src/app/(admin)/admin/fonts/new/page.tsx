@@ -1,3 +1,4 @@
+// src/app/(admin)/admin/fonts/new/page.tsx
 'use client';
 
 import { useState, useEffect, useCallback, useTransition } from 'react';
@@ -61,6 +62,11 @@ const TagInput = ({ name, label, tags, setTags }: { name: string, label: string,
     </div>
   );
 };
+
+// ==================== PENAMBAHAN FUNGSI VALIDASI ====================
+const MAX_PAYLOAD_SIZE_MB = 4; // Batas aman dalam MB (Vercel sekitar 4.5MB)
+const MAX_PAYLOAD_SIZE_BYTES = MAX_PAYLOAD_SIZE_MB * 1024 * 1024;
+// ====================================================================
 
 export default function AddNewFontPage() {
   const [tags, setTags] = useState<string[]>([]);
@@ -143,6 +149,21 @@ export default function AddNewFontPage() {
   
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // ==================== PERBAIKAN: Validasi Ukuran File ====================
+    const totalSize = 
+      (files.mainImage?.size || 0) +
+      (files.galleryImages.reduce((sum, f) => sum + f.size, 0)) +
+      (files.downloadableFile?.size || 0) +
+      (files.displayFontRegular?.size || 0) +
+      (files.displayFontItalic?.size || 0);
+
+    if (totalSize > MAX_PAYLOAD_SIZE_BYTES) {
+      toast.error(`Total file size (${(totalSize / 1024 / 1024).toFixed(2)} MB) exceeds the ${MAX_PAYLOAD_SIZE_MB} MB limit. Please reduce image sizes or gallery count.`);
+      return;
+    }
+    // ====================================================================
+
     const form = e.currentTarget;
     const formData = new FormData(form);
 
@@ -154,17 +175,20 @@ export default function AddNewFontPage() {
 
     startTransition(async () => {
       const result = await addFontAction(formData);
-      if (result.error) {
+      // Pengecekan result ditambahkan untuk menghindari error 'undefined'
+      if (result?.error) { 
         toast.error(result.error);
-      } else {
-        toast.success(result.success!);
+      } else if (result?.success) {
+        toast.success(result.success);
         router.push('/admin/fonts');
+      } else {
+        // Fallback jika terjadi error tak terduga (seperti 413)
+        toast.error('An unknown error occurred. The file might be too large.');
       }
     });
   };
 
   return (
-    // PERBAIKAN: Hapus semua div pembungkus yang mengatur flex dan tinggi
     <form onSubmit={handleSubmit}>
         <div className="flex justify-between items-center mb-6">
             <div>
@@ -261,7 +285,6 @@ export default function AddNewFontPage() {
             />
         </div>
 
-        {/* --- TOMBOL SAVE SEKARANG MENJADI BAGIAN AKHIR DARI FORM --- */}
         <div className="mt-8 border-t pt-6 flex justify-end">
             <button type="submit" disabled={isPending} className="bg-brand-orange text-white font-medium py-3 px-8 rounded-lg hover:bg-brand-orange-hover disabled:opacity-50 min-w-[150px] text-center">
                 {isPending ? 'Saving...' : 'Save Font'}

@@ -1,6 +1,6 @@
 // src/components/emails/PurchaseConfirmationEmail.tsx
 import * as React from 'react';
-import { Html, Head, Body, Container, Heading, Text, Section, Row, Column, Hr, Link, Img } from '@react-email/components';
+import { Html, Head, Body, Container, Heading, Text, Section, Row, Column, Hr, Link, Img, Button } from '@react-email/components';
 
 interface EmailProps {
   customerName: string;
@@ -10,9 +10,11 @@ interface EmailProps {
     amount: number | null;
     license_type: string | null;
   }[];
+  // PROPS BARU: Tambahkan downloadLinks
+  downloadLinks: { name: string; url: string }[];
 }
 
-const PurchaseConfirmationEmail: React.FC<EmailProps> = ({ customerName, orderId, orders }) => {
+const PurchaseConfirmationEmail: React.FC<EmailProps> = ({ customerName, orderId, orders, downloadLinks }) => {
   const totalAmount = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
   const websiteUrl = 'https://www.operatype.co';
 
@@ -25,14 +27,20 @@ const PurchaseConfirmationEmail: React.FC<EmailProps> = ({ customerName, orderId
           <Heading style={heading}>Thank you for your purchase!</Heading>
           <Text style={paragraph}>Hi {customerName},</Text>
           <Text style={paragraph}>
-            We're preparing your fonts for download. You can access all your purchased fonts anytime by logging into your account dashboard.
+            Your order is complete. You can download your purchased fonts using the links below. These links are valid for a limited time.
           </Text>
           
-          <Section style={{ textAlign: 'center', margin: '32px 0' }}>
-            <Link href={`${websiteUrl}/account`} style={button}>
-              Go to My Dashboard
-            </Link>
+          {/* ==================== BAGIAN BARU: LINK UNDUHAN ==================== */}
+          <Section style={{ margin: '32px 0' }}>
+            <Heading as="h2" style={subheading}>Your Downloads</Heading>
+            {downloadLinks.map((link, index) => (
+              <Section key={index} style={downloadSection}>
+                <Text style={itemText}><strong>{link.name}</strong></Text>
+                <Button href={link.url} style={button}>Download Font</Button>
+              </Section>
+            ))}
           </Section>
+          {/* =================================================================== */}
 
           <Hr style={hr} />
 
@@ -58,6 +66,8 @@ const PurchaseConfirmationEmail: React.FC<EmailProps> = ({ customerName, orderId
           </Row>
 
           <Text style={footer}>
+            You can also access your purchases anytime by logging into your account dashboard.
+            <br />
             © {new Date().getFullYear()} Operatype.co. All Rights Reserved.
           </Text>
         </Container>
@@ -68,7 +78,7 @@ const PurchaseConfirmationEmail: React.FC<EmailProps> = ({ customerName, orderId
 
 export default PurchaseConfirmationEmail;
 
-// --- Styles ---
+// --- Styles (Tambahkan style baru untuk download) ---
 const main = { backgroundColor: '#f6f9fc', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif' };
 const container = { backgroundColor: '#ffffff', border: '1px solid #eee', borderRadius: '5px', boxShadow: '0 5px 15px rgba(0,0,0,0.08)', margin: '20px auto', padding: '20px', width: '580px' };
 const logo = { margin: '0 auto' };
@@ -77,10 +87,12 @@ const subheading = { fontSize: '18px', lineHeight: '1.3', fontWeight: '700', col
 const paragraph = { fontSize: '16px', lineHeight: '1.6', color: '#484848' };
 const button = { backgroundColor: '#C8705C', borderRadius: '8px', color: '#fff', fontSize: '16px', textDecoration: 'none', textAlign: 'center' as const, display: 'inline-block', padding: '14px 24px' };
 const hr = { borderColor: '#cccccc', margin: '20px 0' };
-const footer = { color: '#8898aa', fontSize: '12px', lineHeight: '16px', textAlign: 'center' as const };
+const footer = { color: '#8898aa', fontSize: '12px', lineHeight: '16px', textAlign: 'center' as const, marginTop: '20px' };
 const itemRow = { padding: '5px 0' };
-const itemText = { margin: '0', color: '#484848' };
+const itemText = { margin: '0', color: '#484848', fontSize: '16px' };
 const itemPrice = { textAlign: 'right' as const };
 const totalRow = { fontWeight: '700' };
 const totalText = { margin: '0', fontSize: '16px', color: '#484848' };
 const totalPrice = { textAlign: 'right' as const };
+// STYLE BARU
+const downloadSection = { border: '1px solid #eee', borderRadius: '5px', padding: '15px', marginBottom: '10px' };
