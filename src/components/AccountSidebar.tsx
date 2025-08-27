@@ -1,15 +1,13 @@
 // src/components/AccountSidebar.tsx
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useTransition } from 'react';
 import Link from 'next/link';
 import { FolderArrowDownIcon, ReceiptPercentIcon, KeyIcon, LogoutIcon } from '@/components/icons';
-import { logoutAction } from '@/app/actions/authActions';
-import toast from 'react-hot-toast';
 import type { User } from '@supabase/supabase-js';
+import { useAuth } from '@/context/AuthContext'; // Impor useAuth
 
-// Komponen Link terpisah untuk menjaga kebersihan kode
 const SidebarLink = ({ href, icon, text }: { href: string; icon: React.ReactNode; text: string; }) => {
   const pathname = usePathname();
   const isActive = pathname === href;
@@ -27,24 +25,23 @@ const SidebarLink = ({ href, icon, text }: { href: string; icon: React.ReactNode
   );
 };
 
-// Tipe untuk props yang diterima dari Server Component
 type AccountSidebarProps = {
   user: User;
   profile: { full_name: string | null } | null;
 };
 
 export default function AccountSidebar({ user, profile }: AccountSidebarProps) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { handleLogout } = useAuth(); // Ambil fungsi logout dari context
 
-  const handleLogout = () => {
+  // ==================== PERUBAHAN UTAMA ====================
+  // Buat fungsi wrapper untuk menangani transisi loading state
+  const onLogoutClick = () => {
     startTransition(async () => {
-      await logoutAction();
-      router.refresh(); // Tetap refresh untuk memastikan semua state klien (seperti di Navbar) diperbarui
-      // Redirect tidak lagi diperlukan karena middleware akan menangani jika halaman ini diakses lagi
-      toast.success('You have been logged out.');
+      await handleLogout();
     });
   };
+  // =======================================================
 
   return (
     <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -60,8 +57,9 @@ export default function AccountSidebar({ user, profile }: AccountSidebarProps) {
         <SidebarLink href="/account" icon={<FolderArrowDownIcon />} text="My Fonts" />
         <SidebarLink href="/account/orders" icon={<ReceiptPercentIcon />} text="Order History" />
         <SidebarLink href="/account/change-password" icon={<KeyIcon />} text="Change Password" />
+        
         <button 
-          onClick={handleLogout}
+          onClick={onLogoutClick} // Panggil fungsi wrapper yang baru
           disabled={isPending} 
           className="flex items-center w-full gap-3 p-3 rounded-md hover:bg-red-50 transition-colors text-left text-red-600 disabled:opacity-50"
         >
