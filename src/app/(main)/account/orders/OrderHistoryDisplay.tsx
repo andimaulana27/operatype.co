@@ -4,6 +4,7 @@
 import { useRouter } from 'next/navigation';
 import AccountPagination from '@/components/AccountPagination';
 import type { Order } from './page';
+import Link from 'next/link'; // <-- Impor Link
 
 type OrderHistoryDisplayProps = {
   orders: Order[];
@@ -44,15 +45,22 @@ export default function OrderHistoryDisplay({ orders, totalPages, currentPage }:
                     </td>
                     <td className="px-6 py-4">{order.invoice_id || 'N/A'}</td>
                     <td className="px-6 py-4">
-                      {/* PERBAIKAN: Logika untuk menampilkan nama dari struktur array */}
                       {order.order_items
                         ?.map(item => item.fonts?.name)
-                        .filter(Boolean) // Menghapus item null/undefined
+                        .filter(Boolean)
                         .join(', ') || 'N/A'}
                     </td>
                     <td className="px-6 py-4">${order.total_amount?.toFixed(2) || '0.00'}</td>
                     <td className="px-6 py-4">
-                      <a href="#" className="font-medium text-brand-orange hover:underline">View</a>
+                      {/* ==================== PERBAIKAN DI SINI ==================== */}
+                      {/* Mengubah <a> menjadi <Link> yang mengarah ke halaman dinamis */}
+                      <Link 
+                        href={`/account/orders/${order.invoice_id}`} 
+                        className="font-medium text-brand-orange hover:underline"
+                      >
+                        View
+                      </Link>
+                      {/* ========================================================== */}
                     </td>
                   </tr>
                 ))
