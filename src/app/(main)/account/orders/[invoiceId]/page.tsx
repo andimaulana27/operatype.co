@@ -228,7 +228,7 @@ export default function InvoicePage({ params }: { params: { invoiceId: string } 
       </div>
       
       <div className="flex justify-between items-center mt-12 border-t pt-6">
-        <p className="text-sm text-gray-500">Thank you for your business!</p>
+        <p className="text-sm text-gray-500">Thank you for your Purchase!</p>
         <button
           onClick={handleDownloadPdf}
           className="flex items-center gap-2 bg-brand-orange text-white font-medium py-2 px-5 rounded-full hover:bg-brand-orange-hover transition-colors"

@@ -47,17 +47,19 @@ async function getCuratedFonts(): Promise<FontWithDetailsForCard[]> {
 }
 
 // --- DATA STATIS (Tidak ada perubahan) ---
+const instagramImagesVersion = "1.1"; 
+
 const styleImages = [
     '/images/previews/font-style-preview-1.jpg',
     '/images/previews/font-style-preview-2.jpg',
     '/images/previews/font-style-preview-3.jpg',
 ];
 const instagramImages = [
-  '/images/previews/instagram-preview-1.jpg',
-  '/images/previews/instagram-preview-2.jpg',
-  '/images/previews/instagram-preview-3.jpg',
-  '/images/previews/instagram-preview-4.jpg',
-  '/images/previews/instagram-preview-5.jpg',
+  `/images/previews/instagram-preview-1.jpg?v=${instagramImagesVersion}`,
+  `/images/previews/instagram-preview-2.jpg?v=${instagramImagesVersion}`,
+  `/images/previews/instagram-preview-3.jpg?v=${instagramImagesVersion}`,
+  `/images/previews/instagram-preview-4.jpg?v=${instagramImagesVersion}`,
+  `/images/previews/instagram-preview-5.jpg?v=${instagramImagesVersion}`,
 ];
 
 export default async function HomePage() {
