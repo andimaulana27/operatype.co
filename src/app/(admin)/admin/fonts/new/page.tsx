@@ -63,11 +63,6 @@ const TagInput = ({ name, label, tags, setTags }: { name: string, label: string,
   );
 };
 
-// ==================== PENAMBAHAN FUNGSI VALIDASI ====================
-const MAX_PAYLOAD_SIZE_MB = 4; // Batas aman dalam MB (Vercel sekitar 4.5MB)
-const MAX_PAYLOAD_SIZE_BYTES = MAX_PAYLOAD_SIZE_MB * 1024 * 1024;
-// ====================================================================
-
 export default function AddNewFontPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [productInfo, setProductInfo] = useState<string[]>([]);
@@ -147,46 +142,70 @@ export default function AddNewFontPage() {
     reader.readAsArrayBuffer(file);
   };
   
+  // ==================== FUNGSI UPLOAD & SUBMIT BARU ====================
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    // ==================== PERBAIKAN: Validasi Ukuran File ====================
-    const totalSize = 
-      (files.mainImage?.size || 0) +
-      (files.galleryImages.reduce((sum, f) => sum + f.size, 0)) +
-      (files.downloadableFile?.size || 0) +
-      (files.displayFontRegular?.size || 0) +
-      (files.displayFontItalic?.size || 0);
-
-    if (totalSize > MAX_PAYLOAD_SIZE_BYTES) {
-      toast.error(`Total file size (${(totalSize / 1024 / 1024).toFixed(2)} MB) exceeds the ${MAX_PAYLOAD_SIZE_MB} MB limit. Please reduce image sizes or gallery count.`);
-      return;
-    }
-    // ====================================================================
-
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-
-    if (files.mainImage) formData.append('mainImage', files.mainImage);
-    files.galleryImages.forEach(file => formData.append('galleryImages', file));
-    if (files.downloadableFile) formData.append('downloadableFile', files.downloadableFile);
-    if (files.displayFontRegular) formData.append('displayFontRegular', files.displayFontRegular);
-    if (files.displayFontItalic) formData.append('displayFontItalic', files.displayFontItalic);
-
     startTransition(async () => {
-      const result = await addFontAction(formData);
-      // Pengecekan result ditambahkan untuk menghindari error 'undefined'
-      if (result?.error) { 
-        toast.error(result.error);
-      } else if (result?.success) {
-        toast.success(result.success);
-        router.push('/admin/fonts');
-      } else {
-        // Fallback jika terjadi error tak terduga (seperti 413)
-        toast.error('An unknown error occurred. The file might be too large.');
+      const form = e.currentTarget;
+      const formData = new FormData(form);
+
+      // Helper function untuk unggah file dari klien
+      const uploadFile = async (file: File, bucket: string, isPublic: boolean = true) => {
+          if (!file) return '';
+          const filePath = `${Date.now()}_${file.name}`;
+          const { data, error } = await supabase.storage.from(bucket).upload(filePath, file);
+          if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
+          if (isPublic) {
+              return supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
+          }
+          return data.path; // Untuk file yang tidak publik
+      };
+
+      try {
+        // 1. Tampilkan notifikasi proses unggah
+        const uploadToast = toast.loading('Mengunggah file besar, mohon tunggu...');
+        
+        // 2. Unggah semua file secara paralel
+        const [
+          mainImageUrl,
+          galleryImageUrls,
+          downloadableFileUrl,
+          displayFontRegularUrl,
+          displayFontItalicUrl
+        ] = await Promise.all([
+          uploadFile(files.mainImage!, 'font_images'),
+          Promise.all(files.galleryImages.map(f => uploadFile(f, 'font_images'))),
+          uploadFile(files.downloadableFile!, 'downloadable-files', false),
+          uploadFile(files.displayFontRegular!, 'display-fonts'),
+          uploadFile(files.displayFontItalic!, 'display-fonts')
+        ]);
+        
+        toast.dismiss(uploadToast);
+        toast.loading('File terunggah, menyimpan data font...');
+
+        // 3. Tambahkan URL ke FormData untuk dikirim ke Server Action
+        formData.append('main_image_url', mainImageUrl);
+        galleryImageUrls.forEach(url => formData.append('gallery_image_urls', url));
+        formData.append('downloadable_file_url', downloadableFileUrl);
+        formData.append('display_font_regular_url', displayFontRegularUrl);
+        formData.append('display_font_italic_url', displayFontItalicUrl);
+
+        // 4. Panggil Server Action hanya dengan data teks dan URL
+        const result = await addFontAction(formData);
+
+        if (result?.error) {
+          toast.error(result.error);
+        } else if (result?.success) {
+          toast.success(result.success);
+          router.push('/admin/fonts');
+        }
+      } catch (error: any) {
+        toast.error(`Error: ${error.message}`);
       }
     });
   };
+  // ====================================================================
 
   return (
     <form onSubmit={handleSubmit}>

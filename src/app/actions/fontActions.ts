@@ -5,29 +5,18 @@ import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { Database } from '@/lib/database.types';
-import { createClient } from '@supabase/supabase-js'; // PERBAIKAN: Tambahkan import ini
+import { createClient } from '@supabase/supabase-js';
 
-type FontFormData = Partial<Database['public']['Tables']['fonts']['Row']>;
 type DiscountInsert = Database['public']['Tables']['discounts']['Insert'];
 type DiscountUpdate = Partial<Database['public']['Tables']['discounts']['Update']>;
 
-// PERBAIKAN UTAMA: Fungsi addFontAction sekarang menangani upload file di server
+// ==================== PERUBAHAN UTAMA DI SINI ====================
+// Action ini sekarang tidak lagi mengunggah file, hanya menerima URL.
 export async function addFontAction(formData: FormData) {
   const supabase = createServerActionClient({ cookies });
 
-  // Helper function untuk upload file di server
-  const uploadFile = async (file: File, bucket: string, isPublic: boolean = true) => {
-    const filePath = `${Date.now()}_${file.name}`;
-    const { data, error } = await supabase.storage.from(bucket).upload(filePath, file);
-    if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
-    if (isPublic) {
-        return supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
-    }
-    return data.path; // Untuk file yang tidak publik
-  };
-
   try {
-    // 1. Ekstrak semua data dari FormData
+    // 1. Ekstrak semua data teks DAN URL dari FormData
     const name = String(formData.get('name'));
     const description = String(formData.get('description'));
     const price_desktop = Number(formData.get('price_desktop'));
@@ -41,59 +30,53 @@ export async function addFontAction(formData: FormData) {
     const file_size = String(formData.get('file_size'));
     const file_types = String(formData.get('file_types'));
     
-    // Ekstrak data array (tags, styles, dll.)
+    // Ekstrak URL yang dikirim dari klien
+    const main_image_url = String(formData.get('main_image_url'));
+    const gallery_image_urls = formData.getAll('gallery_image_urls').map(String);
+    const downloadable_file_url = String(formData.get('downloadable_file_url'));
+    const display_font_regular_url = String(formData.get('display_font_regular_url'));
+    const display_font_italic_url = String(formData.get('display_font_italic_url'));
+
     const tags = formData.getAll('tags').map(String);
     const product_information = formData.getAll('product_information').map(String);
     const styles = formData.getAll('styles').map(String);
 
-    // 2. Handle upload file
-    const mainImageFile = formData.get('mainImage') as File | null;
-    const galleryImageFiles = formData.getAll('galleryImages') as File[];
-    const downloadableFile = formData.get('downloadableFile') as File | null;
-    const displayFontRegularFile = formData.get('displayFontRegular') as File | null;
-    const displayFontItalicFile = formData.get('displayFontItalic') as File | null;
-
-    const fileUrls = {
-      main_image_url: mainImageFile && mainImageFile.size > 0 ? await uploadFile(mainImageFile, 'font_images') : null,
-      gallery_image_urls: await Promise.all(galleryImageFiles.map(f => uploadFile(f, 'font_images'))),
-      downloadable_file_url: downloadableFile && downloadableFile.size > 0 ? await uploadFile(downloadableFile, 'downloadable-files', false) : null,
-      display_font_regular_url: displayFontRegularFile && displayFontRegularFile.size > 0 ? await uploadFile(displayFontRegularFile, 'display-fonts') : null,
-      display_font_italic_url: displayFontItalicFile && displayFontItalicFile.size > 0 ? await uploadFile(displayFontItalicFile, 'display-fonts') : null,
-    };
-
-    // 3. Siapkan data untuk dimasukkan ke database
+    // 2. Siapkan data untuk dimasukkan ke database
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     
     const finalData = {
       name, slug, description, price_desktop, price_business, price_corporate,
       category_id, partner_id, status, is_bestseller, glyph_string, file_size, file_types,
       tags, product_information, styles,
-      main_image_url: fileUrls.main_image_url,
-      gallery_image_urls: fileUrls.gallery_image_urls,
-      downloadable_file_url: fileUrls.downloadable_file_url,
-      display_font_regular_url: fileUrls.display_font_regular_url,
-      display_font_italic_url: fileUrls.display_font_italic_url,
+      main_image_url,
+      gallery_image_urls,
+      downloadable_file_url,
+      display_font_regular_url,
+      display_font_italic_url,
     };
 
     const { error } = await supabase.from('fonts').insert([finalData]);
     if (error) {
-        if (error.code === '23505') throw new Error('A font with this name or slug already exists.');
+        if (error.code === '23505') throw new Error('Font dengan nama atau slug ini sudah ada.');
         throw error;
     }
     
-    // 4. Revalidate path untuk memperbarui cache
+    // 3. Revalidate path untuk memperbarui cache
     revalidatePath('/admin/fonts');
     revalidatePath('/fonts');
     revalidatePath('/');
     
-    return { success: 'Font added successfully!' };
+    return { success: 'Font berhasil ditambahkan!' };
   } catch (error: any) {
     console.error("Add Font Action Error: ", error);
-    return { error: `Failed to add font: ${error.message}` };
+    return { error: `Gagal menambahkan font: ${error.message}` };
   }
 }
+// ===============================================================
 
+// Sisa kode di file ini (deleteFontAction, updateFontAction, dll) tetap sama
 export async function deleteFontAction(fontId: string, fileUrls: any) {
+    // ...
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -161,7 +144,6 @@ export async function deleteFontAction(fontId: string, fileUrls: any) {
     return { error: `Deletion failed: ${error.message}` };
   }
 }
-
 export async function updateFontAction(fontId: string, updateData: any) {
    const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -192,7 +174,6 @@ export async function updateFontAction(fontId: string, updateData: any) {
     return { error: `Update failed: ${error.message}` };
   }
 }
-
 export async function updateFontStatusAction(
   fontId: string, 
   updates: { is_bestseller?: boolean }
@@ -213,7 +194,6 @@ export async function updateFontStatusAction(
     return { error: `Database error: ${error.message}` };
   }
 }
-
 export async function updateHomepageLayoutAction(
   featuredIds: string[],
   curatedIds: string[]
@@ -256,7 +236,6 @@ export async function updateHomepageLayoutAction(
     return { error: `Failed to save layout: ${error.message}` };
   }
 }
-
 export async function createDiscountAction(data: DiscountInsert) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -280,7 +259,6 @@ export async function createDiscountAction(data: DiscountInsert) {
     return { error: error.message };
   }
 }
-
 export async function deleteDiscountAction(discountId: string) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -310,7 +288,6 @@ export async function deleteDiscountAction(discountId: string) {
     return { error: error.message };
   }
 }
-
 export async function updateDiscountAction(discountId: string, updateData: DiscountUpdate) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
