@@ -15,6 +15,7 @@ import { updateFontAction } from '@/app/actions/fontActions';
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
 
+// Perbarui tipe data FontFormData untuk menyertakan harga baru
 type FontFormData = {
   name: string;
   slug: string;
@@ -22,7 +23,8 @@ type FontFormData = {
   is_bestseller: boolean;
   tags: string[];
   price_desktop: number;
-  price_business: number;
+  price_standard_commercial: number; // <-- BARU
+  price_extended_commercial: number; // <-- BARU
   price_corporate: number;
   glyph_string: string;
   file_types: string;
@@ -105,10 +107,11 @@ export default function EditFontPage() {
         name: data.name,
         slug: data.slug,
         description: data.description,
-        is_bestseller: data.is_bestseller ?? false, // <-- PERBAIKAN DI SINI
+        is_bestseller: data.is_bestseller ?? false,
         tags: (data.tags as string[]) || [],
         price_desktop: data.price_desktop,
-        price_business: data.price_business,
+        price_standard_commercial: data.price_standard_commercial || 0, // <-- BARU
+        price_extended_commercial: data.price_extended_commercial || 0, // <-- BARU
         price_corporate: data.price_corporate,
         glyph_string: data.glyph_string,
         file_types: data.file_types,
@@ -199,7 +202,6 @@ export default function EditFontPage() {
             return data.path;
         };
 
-        // Menggunakan toast.promise untuk menangani loading state upload file
         await toast.promise(
             (async () => {
                 if (files.mainImage) { updateData.main_image_url = await uploadAndGetUrl(files.mainImage, 'font_images'); }
@@ -220,7 +222,6 @@ export default function EditFontPage() {
             }
         );
 
-        // Memanggil Server Action untuk mengupdate database dan revalidate cache
         const result = await updateFontAction(fontId, updateData);
 
         if (result.error) {
@@ -263,14 +264,17 @@ export default function EditFontPage() {
                     <label className="font-medium">Description</label>
                     <textarea name="description" value={formData.description || ''} onChange={handleInputChange} rows={5} className="w-full p-2 border rounded-md mt-1" required />
                 </div>
+                {/* ==================== PERBAIKAN HARGA LISENSI ==================== */}
                 <div>
-                    <h3 className="text-lg font-semibold border-b pb-2 mb-4">Licensing</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <h3 className="text-lg font-semibold border-b pb-2 mb-4">Licensing Prices</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label>Desktop Price</label><input type="number" step="0.01" name="price_desktop" value={formData.price_desktop || 0} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1" required /></div>
-                        <div><label>Business Price</label><input type="number" step="0.01" name="price_business" value={formData.price_business || 0} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1" required /></div>
+                        <div><label>Standard Commercial Price</label><input type="number" step="0.01" name="price_standard_commercial" value={formData.price_standard_commercial || 0} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1" required /></div>
+                        <div><label>Extended Commercial Price</label><input type="number" step="0.01" name="price_extended_commercial" value={formData.price_extended_commercial || 0} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1" required /></div>
                         <div><label>Corporate Price</label><input type="number" step="0.01" name="price_corporate" value={formData.price_corporate || 0} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1" required /></div>
                     </div>
                 </div>
+                {/* ==================================================================== */}
                 <div><TagInput label="Product Information" tags={formData.product_information as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, product_information: newTags }))} /></div>
                 <div><TagInput label="Styles" tags={formData.styles as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, styles: newTags }))} /></div>
             </div>
@@ -293,10 +297,6 @@ export default function EditFontPage() {
                 </div>
                 <div>
                     <TagInput label="Tags" tags={formData.tags as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, tags: newTags }))} />
-                </div>
-                <div className="flex items-center gap-2">
-                    <input type="checkbox" name="is_bestseller" checked={formData.is_bestseller || false} onChange={handleInputChange} className="h-4 w-4" />
-                    <label>Mark as Bestseller</label>
                 </div>
             </div>
         </div>

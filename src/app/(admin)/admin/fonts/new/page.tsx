@@ -142,7 +142,6 @@ export default function AddNewFontPage() {
     reader.readAsArrayBuffer(file);
   };
   
-  // ==================== FUNGSI UPLOAD & SUBMIT BARU ====================
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
@@ -150,7 +149,6 @@ export default function AddNewFontPage() {
       const form = e.currentTarget;
       const formData = new FormData(form);
 
-      // Helper function untuk unggah file dari klien
       const uploadFile = async (file: File, bucket: string, isPublic: boolean = true) => {
           if (!file) return '';
           const filePath = `${Date.now()}_${file.name}`;
@@ -159,14 +157,12 @@ export default function AddNewFontPage() {
           if (isPublic) {
               return supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
           }
-          return data.path; // Untuk file yang tidak publik
+          return data.path;
       };
 
       try {
-        // 1. Tampilkan notifikasi proses unggah
         const uploadToast = toast.loading('Mengunggah file besar, mohon tunggu...');
         
-        // 2. Unggah semua file secara paralel
         const [
           mainImageUrl,
           galleryImageUrls,
@@ -184,14 +180,12 @@ export default function AddNewFontPage() {
         toast.dismiss(uploadToast);
         toast.loading('File terunggah, menyimpan data font...');
 
-        // 3. Tambahkan URL ke FormData untuk dikirim ke Server Action
         formData.append('main_image_url', mainImageUrl);
         galleryImageUrls.forEach(url => formData.append('gallery_image_urls', url));
         formData.append('downloadable_file_url', downloadableFileUrl);
         formData.append('display_font_regular_url', displayFontRegularUrl);
         formData.append('display_font_italic_url', displayFontItalicUrl);
 
-        // 4. Panggil Server Action hanya dengan data teks dan URL
         const result = await addFontAction(formData);
 
         if (result?.error) {
@@ -205,7 +199,6 @@ export default function AddNewFontPage() {
       }
     });
   };
-  // ====================================================================
 
   return (
     <form onSubmit={handleSubmit}>
@@ -230,14 +223,17 @@ export default function AddNewFontPage() {
                     <label className="font-medium">Description</label>
                     <textarea name="description" rows={5} className="w-full p-2 border rounded-md mt-1" required />
                 </div>
+                {/* ==================== PERBAIKAN HARGA LISENSI ==================== */}
                 <div>
-                    <h3 className="text-lg font-semibold border-b pb-2 mb-4">Licensing</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <h3 className="text-lg font-semibold border-b pb-2 mb-4">Licensing Prices</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label>Desktop Price</label><input type="number" step="0.01" name="price_desktop" defaultValue={0} className="w-full p-2 border rounded-md mt-1" required /></div>
-                        <div><label>Business Price</label><input type="number" step="0.01" name="price_business" defaultValue={0} className="w-full p-2 border rounded-md mt-1" required /></div>
+                        <div><label>Standard Commercial Price</label><input type="number" step="0.01" name="price_standard_commercial" defaultValue={0} className="w-full p-2 border rounded-md mt-1" required /></div>
+                        <div><label>Extended Commercial Price</label><input type="number" step="0.01" name="price_extended_commercial" defaultValue={0} className="w-full p-2 border rounded-md mt-1" required /></div>
                         <div><label>Corporate Price</label><input type="number" step="0.01" name="price_corporate" defaultValue={0} className="w-full p-2 border rounded-md mt-1" required /></div>
                     </div>
                 </div>
+                {/* ==================================================================== */}
                 <TagInput name="product_information" label="Product Information" tags={productInfo} setTags={setProductInfo} />
                 <TagInput name="styles" label="Styles" tags={styles} setTags={setStyles} />
             </div>

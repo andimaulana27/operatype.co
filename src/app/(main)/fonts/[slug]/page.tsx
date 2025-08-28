@@ -1,6 +1,5 @@
 // src/app/(main)/fonts/[slug]/page.tsx
 
-// Baris ini memaksa halaman untuk selalu mengambil data terbaru dari database.
 export const revalidate = 0;
 
 import { supabase } from "@/lib/supabaseClient";
@@ -18,7 +17,6 @@ import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
 import { FontWithDetailsForCard } from "@/components/ProductCard";
 
-// Tipe data untuk konsistensi
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
   partners: { name: string; slug: string } | null;
@@ -26,7 +24,6 @@ type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
   font_discounts: { discounts: Discount | null }[];
 };
 
-// Fungsi untuk mengambil data font berdasarkan slug
 async function getFontBySlug(slug: string): Promise<FontDetail | null> {
   const { data, error } = await supabase
     .from('fonts')
@@ -41,7 +38,6 @@ async function getFontBySlug(slug: string): Promise<FontDetail | null> {
   return data as FontDetail;
 }
 
-// Fungsi untuk mengambil font terkait
 async function getRelatedFonts(currentId: string): Promise<FontWithDetailsForCard[]> {
     const { data, error } = await supabase
     .from('fonts')
@@ -55,7 +51,6 @@ async function getRelatedFonts(currentId: string): Promise<FontWithDetailsForCar
   }
   return data as FontWithDetailsForCard[];
 }
-
 
 export default async function FontDetailPage({ 
     params 
@@ -83,12 +78,11 @@ export default async function FontDetailPage({
           new Date(d.end_date) >= now
       );
 
-  // Helper untuk menentukan tipe MIME font
   const getFontMimeType = (url: string | null) => {
     if (!url) return '';
     if (url.endsWith('.otf')) return 'font/otf';
     if (url.endsWith('.ttf')) return 'font/ttf';
-    return ''; // Default
+    return '';
   };
 
   return (
@@ -124,11 +118,25 @@ export default async function FontDetailPage({
               fontFamilyRegular={dynamicFontFamilyRegular}
               fontFamilyItalic={font.display_font_italic_url ? dynamicFontFamilyItalic : undefined}
             />
+            {/* ==================== KONTEN DIKEMBALIKAN KE SINI TANPA GARIS ==================== */}
+            <div className="mt-16">
+              <SectionHeader title="About The Product" />
+              <p className="font-light text-brand-black whitespace-pre-line">
+                {font.description}
+              </p>
+            </div>
+            <div className="mt-12">
+              <SectionHeader title="Glyph" />
+              <GlyphViewer 
+                glyphString={font.glyph_string}
+                fontFamily={dynamicFontFamilyRegular}
+              />
+            </div>
+            {/* ============================================================================== */}
           </div>
 
           <div className="w-full">
             <h1 className="text-5xl font-medium text-brand-black">{font.name}</h1>
-            
             <div className="mt-2 text-sm">
                 <span className="text-gray-600">by </span>
                 {font.partners ? (
@@ -136,18 +144,13 @@ export default async function FontDetailPage({
                     {font.partners.name}
                   </Link>
                 ) : (
-                  // ==================== PERBAIKAN DI SINI ====================
                   <Link href="/fonts" className="font-semibold text-brand-orange hover:underline">
                     Operatype.co
                   </Link>
-                  // ========================================================
                 )}
             </div>
-
             <div className="border-b border-brand-black my-6"></div>
-            
             <LicenseSelector font={font} activeDiscount={activeDiscount || null} />
-
             <div className="text-center border border-brand-black rounded-lg p-6 mt-6">
               <h4 className="font-medium text-brand-black">Need a custom font or license?</h4>
               <div className="w-16 h-[3px] bg-brand-orange mx-auto my-4"></div>
@@ -158,25 +161,7 @@ export default async function FontDetailPage({
                 </span>
               </Link>
             </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mt-16">
-          <div className="lg:col-span-2">
-            <SectionHeader title="About The Product" />
-            <p className="font-light text-brand-black whitespace-pre-line">
-              {font.description}
-            </p>
-            <div className="mt-12">
-              <SectionHeader title="Glyph" />
-              <GlyphViewer 
-                glyphString={font.glyph_string}
-                fontFamily={dynamicFontFamilyRegular}
-              />
-            </div>
-          </div>
-          <div>
-            <div className="space-y-8">
+            <div className="space-y-8 mt-16 border-t pt-16">
               <div>
                 <SectionHeader title="Category" />
                 <div className="flex items-center gap-3 font-light text-brand-black">
@@ -212,18 +197,16 @@ export default async function FontDetailPage({
               </div>
               <div>
                 <SectionHeader title="Tags" />
-                <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
-                  {(Array.isArray(font.tags) ? font.tags as string[] : []).map((tag: string) => <li key={tag}>{tag}</li>)}
-                </ul>
+                <p className="font-light text-brand-black leading-relaxed">
+                  {(Array.isArray(font.tags) ? (font.tags as string[]).join(', ') : '')}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        <section className="mt-24">
-          <div>
-            <SectionHeader title="You May Also Like" />
-          </div>
+        <section className="mt-24 border-t pt-16">
+          <SectionHeader title="You May Also Like" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mt-8">
             {relatedFonts.map((relatedFont) => (
               <ProductCard key={relatedFont.id} font={relatedFont} />

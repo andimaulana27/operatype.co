@@ -1,25 +1,90 @@
 // src/app/(main)/license/page.tsx
 import Link from 'next/link';
 import { CheckCircleIcon } from '@/components/icons';
+import { XCircle } from 'lucide-react'; // Mengimpor ikon X
 
-const LicenseCard = ({ title, subtitle, description, features }: { title: string; subtitle: string; description: string; features: string[] }) => (
+// Komponen kartu lisensi yang dimodifikasi untuk menampilkan "Allowed" dan "Not Allowed"
+const LicenseCard = ({ 
+  title, 
+  subtitle, 
+  allowed, 
+  notAllowed 
+}: { 
+  title: string; 
+  subtitle: string; 
+  allowed: string[]; 
+  notAllowed: string[];
+}) => (
   <div className="border border-brand-black rounded-lg p-8 h-full flex flex-col">
     <h3 className="text-2xl font-medium text-brand-black">{title}</h3>
     <div className="w-16 h-0.5 bg-brand-orange mt-2 mb-4"></div>
-    {/* PERBAIKAN: Warna teks diubah menjadi brand-black */}
-    <p className="text-brand-black mt-1">{subtitle}</p>
-    <p className="font-light text-brand-black mt-4">{description}</p>
-    <ul className="space-y-3 mt-6">
-      {features.map((feature, index) => (
-        <li key={index} className="flex items-start gap-3">
-          <CheckCircleIcon className="w-6 h-6 text-brand-orange flex-shrink-0" />
-          {/* PERBAIKAN: Warna teks diubah menjadi brand-black */}
-          <span className="font-light text-brand-black">{feature}</span>
-        </li>
-      ))}
-    </ul>
+    <p className="text-brand-black mt-1 italic">{subtitle}</p>
+    
+    <div className="mt-6 flex-grow">
+      <h4 className="font-medium text-green-600 mb-3">Allowed:</h4>
+      <ul className="space-y-3 mb-6">
+        {allowed.map((feature, index) => (
+          <li key={index} className="flex items-start gap-3">
+            <CheckCircleIcon className="w-6 h-6 text-green-500 flex-shrink-0" />
+            <span className="font-light text-brand-black">{feature}</span>
+          </li>
+        ))}
+      </ul>
+
+      <h4 className="font-medium text-red-600 mb-3">Not Allowed:</h4>
+      <ul className="space-y-3">
+        {notAllowed.map((feature, index) => (
+          <li key={index} className="flex items-start gap-3">
+            <XCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
+            <span className="font-light text-brand-black">{feature}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   </div>
 );
+
+// Komponen kartu lisensi korporat dengan "Additional Terms"
+const CorporateLicenseCard = ({ 
+  title, 
+  subtitle, 
+  allowed, 
+  additionalTerms 
+}: { 
+  title: string; 
+  subtitle: string; 
+  allowed: string[]; 
+  additionalTerms: string[];
+}) => (
+  <div className="border border-brand-black rounded-lg p-8 h-full flex flex-col">
+    <h3 className="text-2xl font-medium text-brand-black">{title}</h3>
+    <div className="w-16 h-0.5 bg-brand-orange mt-2 mb-4"></div>
+    <p className="text-brand-black mt-1 italic">{subtitle}</p>
+    
+    <div className="mt-6 flex-grow">
+      <h4 className="font-medium text-green-600 mb-3">Allowed:</h4>
+      <ul className="space-y-3 mb-6">
+        {allowed.map((feature, index) => (
+          <li key={index} className="flex items-start gap-3">
+            <CheckCircleIcon className="w-6 h-6 text-green-500 flex-shrink-0" />
+            <span className="font-light text-brand-black">{feature}</span>
+          </li>
+        ))}
+      </ul>
+
+      <h4 className="font-medium text-blue-600 mb-3">Additional Terms:</h4>
+      <ul className="space-y-3">
+        {additionalTerms.map((term, index) => (
+          <li key={index} className="flex items-start gap-3">
+            <CheckCircleIcon className="w-6 h-6 text-blue-500 flex-shrink-0" />
+            <span className="font-light text-brand-black">{term}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+);
+
 
 export default function LicensePage() {
   return (
@@ -33,76 +98,96 @@ export default function LicensePage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* ==================== KONTEN LISENSI BARU ==================== */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <LicenseCard
             title="Desktop License"
-            subtitle="For Creating Graphics & Documents"
-            description="Our standard license for using fonts on a desktop computer. Perfect for freelancers, students, and creating a vast array of static design work."
-            features={[
-              "Install the font on up to 2 computers per user.",
-              "Create logos, branding, and marketing materials.",
-              "Create rasterized images (JPEG, PNG) for web, ads, and social media.",
-              "Create physical end products for sale (merchandise, packaging, print).",
-              "Use in videos (YouTube, social media, etc.).",
+            subtitle="For personal & non-commercial use only."
+            allowed={[
+              "Personal projects such as school work, student assignments, personal portfolios, resumes, or hobby-based designs.",
+              "Non-commercial prints such as posters for personal use, greeting cards, or home decoration.",
+              "Use on personal devices with no commercial intent."
+            ]}
+            notAllowed={[
+              "Any commercial use (selling products, business branding, advertisements).",
+              "Use for creating logos, trademarks, websites, apps, or client projects.",
+              "Usage by more than one individual.",
+              "Embedding into websites, apps, games, or digital platforms.",
+              "Redistribution, reselling, or sharing of the font files.",
+              "Modification of the font with intent to redistribute."
             ]}
           />
           <LicenseCard
-            title="Website License"
-            subtitle="For Use on the Web"
-            description="Allows you to embed the font into a single website's code, so it appears as live, selectable text."
-            features={[
-              "Use on one (1) website domain.",
-              "License covers up to 50,000 monthly pageviews. (Contact us for higher traffic sites).",
-              "Provided in WOFF & WOFF2 file formats for web optimization.",
-              "This is for live text using CSS @font-face.",
+            title="Standard Commercial License"
+            subtitle="Best suited for freelancers, independent designers, and small businesses."
+            allowed={[
+              "Client work including branding, logo design, packaging, stationery, and marketing materials.",
+              "Social media content for business accounts (static images, banners, thumbnails).",
+              "Print-based materials such as books, magazines, brochures, flyers, stickers, t-shirts, posters, and product packaging.",
+              "Static website use (images such as JPG, PNG, or PDF).",
+              "Installation on a maximum of 2 devices for 1 user only."
+            ]}
+            notAllowed={[
+              "Webfont embedding (.woff, .woff2, .eot, .svg) for live text on websites.",
+              "Use in mobile applications or video games.",
+              "Usage by multiple users, agencies, or teams without additional licenses.",
+              "Incorporation into software, templates, or digital products for resale.",
+              "Broadcasting or advertising campaigns on TV, streaming platforms, or large-scale media."
             ]}
           />
           <LicenseCard
-            title="App License"
-            subtitle="For Mobile & Desktop Applications"
-            description="Required if you are embedding the font file into the code of a mobile or desktop application."
-            features={[
-              "Embed in one (1) application title (e.g., one iOS app, one Android app, or one PC/Mac game).",
-              "Covers unlimited installations of your application.",
-              "The font file must be secured within the app's package and not accessible by end-users.",
+            title="Extended Commercial License"
+            subtitle="Designed for agencies, startups, and larger digital content creators."
+            allowed={[
+              "All usage rights granted under the Standard Commercial License.",
+              "Web embedding (using .woff / .woff2 formats) with up to 1,000,000 pageviews per month across a single domain.",
+              "Use in mobile applications and games, up to 100,000 downloads.",
+              "Creation and sale of paid digital products such as e-books, design templates, or asset bundles (the font itself cannot be included as an installable file).",
+              "Broadcast and advertising campaigns, including TV commercials, YouTube ads, TikTok, Instagram Reels, and other social media video ads.",
+              "Installation for up to 5 users across 5 devices."
+            ]}
+            notAllowed={[
+              "Use in AI training, machine learning datasets, or generative tools.",
+              "Inclusion in open-source platforms, repositories, or shared asset libraries.",
+              "Redistribution, resale, or claiming the font as your own.",
+              "Unlimited app or web embedding (requires Corporate License)."
             ]}
           />
-          <LicenseCard
-            title="E-pub License"
-            subtitle="For E-books & Digital Publications"
-            description="For embedding the font into an electronic publication like an e-book, e-magazine, or interactive PDF."
-            features={[
-              "Use for one (1) publication title (e.g. one book title, regardless of how many times it's sold).",
-              "The font must be embedded in a secure, non-extractable format (e.g., EPUB, AZW, PDF).",
+          <CorporateLicenseCard
+            title="Corporate License"
+            subtitle="For medium to large companies, including national and international brands."
+            allowed={[
+              "All usage rights granted under the Extended Commercial License.",
+              "Corporate branding on a large scale: company logos, trademarks, product packaging, environmental design, interior signage, uniforms, and full brand systems.",
+              "Use on primary websites, microsites, and corporate intranet or internal systems.",
+              "Unlimited use in applications, games, and software with no download restrictions.",
+              "Unlimited web embedding across multiple domains with no pageview limits.",
+              "Broadcasting and advertising across all media: television, cinema, billboards, digital out-of-home (DOOH), streaming services, and global campaigns.",
+              "Installation for up to 20 active users within the company."
+            ]}
+            additionalTerms={[
+              "The purchasing company must provide its legal company name at the time of licensing.",
+              "The license is valid only for the named company and cannot be transferred.",
+              "For multinational corporations or enterprises exceeding 20 users, a custom or enterprise license may be required."
             ]}
           />
-          <LicenseCard
-            title="Broadcast License"
-            subtitle="For TV, Film, and Streaming"
-            description="A specific license for using the font in motion pictures, television shows, video streaming services, and broadcast commercials."
-            features={[
-              "Use in titles, credits, or other text within one (1) film, one (1) television series, or a broadcast advertising campaign.",
-              "License term is typically for one year and renewable.",
-              "Pricing is based on the scale and reach of the production. Please contact us for a quote.",
-            ]}
-          />
-          
-          {/* PERBAIKAN: Kartu CTA dikembalikan ke layout 'center' */}
-          <div className="border border-brand-black rounded-lg p-8 h-full flex flex-col justify-center items-center text-center">
-             <h3 className="text-2xl font-medium text-brand-black">Need a Custom Solution?</h3>
-             <p className="font-light text-brand-black mt-4">
-               On a Limited Budget or Need a Custom License? Our team can create a tailored package that fits your project's unique scope and budget. We're here to help.
-             </p>
-             <div className="mt-6">
-                <Link href="/contact">
-                  <span className="inline-block bg-brand-orange text-white font-medium py-3 px-8 rounded-full hover:bg-brand-orange-hover transition-colors">
-                    Contact Us
-                  </span>
-                </Link>
-             </div>
-          </div>
-
         </div>
+        
+        {/* KARTU KUSTOM DIPERTAHANKAN DAN DITEMPATKAN DI BAWAH */}
+        <div className="mt-8 border border-brand-black rounded-lg p-8 flex flex-col justify-center items-center text-center bg-gray-50">
+           <h3 className="text-2xl font-medium text-brand-black">Need a Custom Solution?</h3>
+           <p className="font-light text-brand-black mt-4 max-w-2xl">
+             On a Limited Budget or Need a Custom License? Our team can create a tailored package that fits your project's unique scope and budget. We're here to help.
+           </p>
+           <div className="mt-6">
+              <Link href="/contact">
+                <span className="inline-block bg-brand-orange text-white font-medium py-3 px-8 rounded-full hover:bg-brand-orange-hover transition-colors">
+                  Contact Us
+                </span>
+              </Link>
+           </div>
+        </div>
+
       </div>
     </div>
   );
