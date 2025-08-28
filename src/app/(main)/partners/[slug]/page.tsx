@@ -17,7 +17,6 @@ type Partner = Database['public']['Tables']['partners']['Row'];
 
 const ITEMS_PER_PAGE = 24;
 
-// Komponen halaman sekarang menjadi Server Component tunggal yang menangani semua logika
 export default async function PartnerDetailPage({
   params,
   searchParams,
@@ -25,7 +24,6 @@ export default async function PartnerDetailPage({
   params: { slug: string };
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  // 1. Ambil data partner berdasarkan slug
   const { data: partner, error: partnerError } = await supabase
     .from('partners')
     .select('*')
@@ -33,17 +31,15 @@ export default async function PartnerDetailPage({
     .single();
 
   if (partnerError || !partner) {
-    notFound(); // Tampilkan 404 jika partner tidak ditemukan
+    notFound();
   }
 
-  // 2. Baca state filter dan pencarian dari URL
   const searchTerm = typeof searchParams.search === 'string' ? searchParams.search : '';
   const sortBy = typeof searchParams.sort === 'string' ? searchParams.sort : 'Newest';
   const currentPage = typeof searchParams.page === 'string' ? Number(searchParams.page) : 1;
   
   const sortOptions = ["Newest", "Oldest", "Price: Low to High", "Price: High to Low", "A to Z", "Z to A"];
 
-  // 3. Bangun query untuk mengambil font berdasarkan filter dari URL
   let query = supabase
     .from('fonts')
     .select('*, font_discounts(discounts(*))', { count: 'exact' })
@@ -62,11 +58,9 @@ export default async function PartnerDetailPage({
       else if (sortBy === 'Z to A') query = query.order('name', { ascending: false });
   }
 
-  // 4. Eksekusi query
   const { data: fontsData, error: fontsError, count } = await query;
   let fonts: FontWithDetailsForCard[] = fontsData || [];
 
-  // 5. Lakukan sorting harga di server
   if (isPriceSort && fonts) {
       fonts.sort((a, b) => {
           const getFinalPrice = (font: FontWithDetailsForCard) => {
@@ -90,7 +84,6 @@ export default async function PartnerDetailPage({
       });
   }
 
-  // 6. Lakukan paginasi di server
   const totalItems = count || 0;
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const paginatedFonts = fonts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -110,13 +103,15 @@ export default async function PartnerDetailPage({
             <SearchInput placeholder="Search font by name..." />
           </div>
           
-          <div className="flex w-full md:w-auto items-center gap-4">
+          {/* ==================== PERBAIKAN DI SINI ==================== */}
+          <div className="flex w-full md:w-auto items-center gap-2">
+            <span className="font-light text-brand-gray-1">Sort by:</span>
             <FilterDropdown 
-                label="Sort by:" 
                 paramName="sort"
                 options={sortOptions} 
             />
           </div>
+          {/* ========================================================= */}
         </div>
         <div className="border-b border-brand-black mt-6"></div>
       </section>
