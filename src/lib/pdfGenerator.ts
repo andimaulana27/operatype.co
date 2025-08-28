@@ -2,6 +2,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { InvoiceDetails } from "@/app/actions/invoiceActions"; // Kita gunakan lagi tipe data ini
+import fs from 'fs'; // <-- 1. Impor modul File System
+import path from 'path'; // <-- 2. Impor modul Path untuk menangani path file
 
 // Fungsi ini akan membuat PDF dan mengembalikannya sebagai Buffer
 export async function generateInvoicePdf(invoice: InvoiceDetails): Promise<Buffer> {
@@ -14,8 +16,19 @@ export async function generateInvoicePdf(invoice: InvoiceDetails): Promise<Buffe
   const margin = 14;
   let currentY = margin;
 
-  // Kita tidak bisa memuat gambar dari path lokal di server, jadi kita lewati logo untuk saat ini.
-  // Jika logo di-host di URL publik, Anda bisa menggunakan teknik fetch untuk mendapatkannya.
+  // ==================== PERBAIKAN LOGO PDF DI SINI ====================
+  try {
+    // 3. Tentukan path absolut ke file logo di dalam folder public
+    const logoPath = path.resolve(process.cwd(), 'public/logo-operatype.png');
+    // 4. Baca file gambar sebagai buffer
+    const logoBuffer = fs.readFileSync(logoPath);
+    // 5. Tambahkan gambar dari buffer ke dalam dokumen PDF
+    doc.addImage(logoBuffer, 'PNG', margin, currentY, 50, 15);
+  } catch (e) {
+      console.error("Gagal memuat logo untuk PDF di server:", e);
+      // Jika gagal, proses pembuatan PDF tetap berjalan tanpa logo
+  }
+  // ===================================================================
   
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");

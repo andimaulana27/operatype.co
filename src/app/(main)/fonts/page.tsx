@@ -1,23 +1,22 @@
 // src/app/(main)/fonts/page.tsx
 
-// Hapus 'use client'. Ini sekarang adalah Server Component.
 import ProductCard from '@/components/ProductCard';
 import { supabase } from '@/lib/supabaseClient';
 import Pagination from '@/components/Pagination';
 import FilterDropdown from '@/components/FilterDropdown';
 import { Database } from '@/lib/database.types';
-import SearchInput from '@/components/SearchInput'; // Komponen baru untuk pencarian
+import SearchInput from '@/components/SearchInput';
 
-// Tipe data yang konsisten
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type FontWithDetails = Database['public']['Tables']['fonts']['Row'] & {
   categories: { name: string } | null;
+  // Tambahkan order_items di sini untuk menghitung popularitas
+  order_items: { count: number }[];
   font_discounts: { discounts: Discount | null }[];
 };
 
 const ITEMS_PER_PAGE = 24;
 
-// Fungsi untuk mengambil kategori (dijalankan di server)
 async function getCategories() {
     const { data, error } = await supabase.from('categories').select('name').order('name');
     if (error) {
@@ -27,26 +26,25 @@ async function getCategories() {
     return data.map(c => c.name);
 }
 
-// Komponen halaman sekarang `async` dan menerima `searchParams`
 export default async function AllFontsPage({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  // 1. Baca state dari URL, bukan dari useState
   const searchTerm = typeof searchParams.search === 'string' ? searchParams.search : '';
   const selectedCategory = typeof searchParams.category === 'string' ? searchParams.category : 'All';
   const sortBy = typeof searchParams.sort === 'string' ? searchParams.sort : 'Newest';
   const currentPage = typeof searchParams.page === 'string' ? Number(searchParams.page) : 1;
 
-  // 2. Ambil data kategori untuk dropdown filter
   const categoryOptions = ['All', ...(await getCategories())];
-  const sortOptions = ["Newest", "Oldest", "Price: Low to High", "Price: High to Low", "A to Z", "Z to A"];
+  // ==================== PERBAIKAN 1: TAMBAHKAN OPSI POPULAR ====================
+  const sortOptions = ["Popular", "Newest", "Oldest", "Price: Low to High", "Price: High to Low", "A to Z", "Z to A"];
 
-  // 3. Bangun query ke database berdasarkan parameter dari URL
+  // 3. Bangun query ke database
   let query = supabase
     .from('fonts')
-    .select('*, categories!inner(name), font_discounts(discounts(*))', { count: 'exact' })
+    // Ambil `order_items` untuk menghitung penjualan
+    .select('*, categories!inner(name), order_items(count), font_discounts(discounts(*))', { count: 'exact' })
     .eq('status', 'Published');
 
   if (searchTerm) {
@@ -56,21 +54,30 @@ export default async function AllFontsPage({
     query = query.eq('categories.name', selectedCategory);
   }
 
-  const isPriceSort = sortBy.includes('Price');
-  if (!isPriceSort) {
+  const isPriceOrPopularSort = sortBy.includes('Price') || sortBy === 'Popular';
+  
+  // Lakukan sorting di database untuk yang non-manual
+  if (!isPriceOrPopularSort) {
       if (sortBy === 'Newest') query = query.order('created_at', { ascending: false });
       else if (sortBy === 'Oldest') query = query.order('created_at', { ascending: true });
       else if (sortBy === 'A to Z') query = query.order('name', { ascending: true });
       else if (sortBy === 'Z to A') query = query.order('name', { ascending: false });
   }
 
-  // 4. Eksekusi query
+  // Eksekusi query
   const { data, error, count } = await query;
   let fonts: FontWithDetails[] = data || [];
 
-  // 5. Lakukan sorting harga di server jika diperlukan
-  if (isPriceSort && fonts) {
+  // Lakukan sorting manual untuk Harga dan Popularitas di server
+  if (isPriceOrPopularSort && fonts) {
       fonts.sort((a, b) => {
+          if (sortBy === 'Popular') {
+              const salesA = a.order_items[0]?.count || 0;
+              const salesB = b.order_items[0]?.count || 0;
+              return salesB - salesA; // Urutkan dari penjualan terbanyak
+          }
+
+          // Logika sorting harga tetap sama
           const getFinalPrice = (font: FontWithDetails) => {
               const now = new Date();
               const activeDiscount = font.font_discounts
@@ -92,7 +99,6 @@ export default async function AllFontsPage({
       });
   }
 
-  // 6. Lakukan paginasi di server
   const totalItems = count || 0;
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const paginatedFonts = fonts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -110,21 +116,23 @@ export default async function AllFontsPage({
       <section className="container mx-auto px-4 py-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="w-full md:w-1/3">
-            {/* Komponen SearchInput baru yang mengontrol URL */}
             <SearchInput placeholder="Search font by name..." />
           </div>
           
           <div className="flex w-full md:w-auto items-center gap-4">
-            {/* FilterDropdown sekarang menerima `paramName` untuk memanipulasi URL */}
             <FilterDropdown
               paramName="category"
               options={categoryOptions}
             />
-            <FilterDropdown
-              paramName="sort"
-              label="Sort by:"
-              options={sortOptions}
-            />
+            {/* ==================== PERBAIKAN 2: PISAHKAN LABEL DROPDOWN ==================== */}
+            <div className="flex items-center gap-2">
+              <span className="font-light text-brand-gray-1">Sort by:</span>
+              <FilterDropdown
+                paramName="sort"
+                options={sortOptions}
+              />
+            </div>
+            {/* ========================================================================== */}
           </div>
         </div>
         <div className="border-b border-brand-black mt-6"></div>

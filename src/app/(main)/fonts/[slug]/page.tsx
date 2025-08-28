@@ -21,7 +21,7 @@ import { FontWithDetailsForCard } from "@/components/ProductCard";
 // Tipe data untuk konsistensi
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
-  partners: { name: string } | null;
+  partners: { name: string; slug: string } | null;
   categories: { name: string } | null;
   font_discounts: { discounts: Discount | null }[];
 };
@@ -30,7 +30,7 @@ type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
 async function getFontBySlug(slug: string): Promise<FontDetail | null> {
   const { data, error } = await supabase
     .from('fonts')
-    .select(`*, partners(name), categories(name), font_discounts(discounts(*))`)
+    .select(`*, partners(name, slug), categories(name), font_discounts(discounts(*))`)
     .eq('slug', slug)
     .single();
 
@@ -93,11 +93,6 @@ export default async function FontDetailPage({
 
   return (
     <>
-      {/* PERBAIKAN: Menambahkan <link rel="preload">.
-        Tag ini akan memberitahu browser untuk mulai mengunduh file font italic
-        di latar belakang segera setelah halaman dimuat, tanpa menunda render.
-        Ini akan membuat perpindahan ke style Italic di Type Tester menjadi instan.
-      */}
       {font.display_font_italic_url && (
         <link
           rel="preload"
@@ -136,9 +131,17 @@ export default async function FontDetailPage({
             
             <div className="mt-2 text-sm">
                 <span className="text-gray-600">by </span>
-                <span className="font-semibold text-brand-orange">
-                    {font.partners?.name || 'Operatype.co'}
-                </span>
+                {font.partners ? (
+                  <Link href={`/partners/${font.partners.slug}`} className="font-semibold text-brand-orange hover:underline">
+                    {font.partners.name}
+                  </Link>
+                ) : (
+                  // ==================== PERBAIKAN DI SINI ====================
+                  <Link href="/fonts" className="font-semibold text-brand-orange hover:underline">
+                    Operatype.co
+                  </Link>
+                  // ========================================================
+                )}
             </div>
 
             <div className="border-b border-brand-black my-6"></div>

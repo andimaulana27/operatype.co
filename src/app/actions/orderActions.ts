@@ -22,7 +22,7 @@ type TransactionDetails = {
 };
 
 export async function createOrderAction(
-  cartItems: CartItem[], 
+  cartItems: CartItem[],
   transactionDetails: TransactionDetails
 ) {
   const supabase = createServerActionClient({ cookies });
@@ -92,19 +92,22 @@ export async function createOrderAction(
     const emailOrderItems: OrderItemWithFont[] = insertedItems.map(item => ({...item, fonts: item.fonts as { name: string | null } | null}));
     
     // ==================== PERBAIKAN UTAMA DI SINI ====================
-    try {
-      console.log("Mencoba mengirim email...");
-      // Tambahkan 'await' untuk memastikan action menunggu email selesai dikirim
-      await Promise.all([
-        sendPurchaseConfirmationEmail(userDetails, emailOrderItems, transactionDetails, downloadLinks, invoicePdf),
-        sendAdminSaleNotification(userDetails, emailOrderItems, transactionDetails)
-      ]);
-      console.log("Perintah pengiriman email berhasil dieksekusi.");
-    } catch (emailError) {
-      // Jika email gagal, log errornya tapi jangan gagalkan seluruh transaksi
-      console.error("GAGAL MENGIRIM EMAIL:", emailError);
-      // Anda bisa menambahkan sistem logging lain di sini jika perlu
-    }
+    // Menjalankan kedua promise secara independen.
+    // Kegagalan pada satu email tidak akan menghentikan pengiriman email lainnya.
+    const emailPromises = [
+      sendPurchaseConfirmationEmail(userDetails, emailOrderItems, transactionDetails, downloadLinks, invoicePdf),
+      sendAdminSaleNotification(userDetails, emailOrderItems, transactionDetails)
+    ];
+
+    const results = await Promise.allSettled(emailPromises);
+
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const emailType = index === 0 ? 'Purchase Confirmation' : 'Admin Sale Notification';
+        // Log error ke konsol server untuk debugging
+        console.error(`GAGAL MENGIRIM EMAIL (${emailType}):`, result.reason);
+      }
+    });
     // ===============================================================
 
     revalidatePath('/account', 'layout');
@@ -116,9 +119,8 @@ export async function createOrderAction(
   }
 }
 
-// ... (sisa kode getAdminOrdersAction tetap sama)
+// ... sisa kode getAdminOrdersAction tetap sama
 export async function getAdminOrdersAction(page: number, limit: number, searchTerm: string = '') {
-    // ...
   const supabaseAdmin = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!

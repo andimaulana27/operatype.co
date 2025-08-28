@@ -39,50 +39,44 @@ export default function InvoicePage({ params }: { params: { invoiceId: string } 
     const margin = 14;
     let currentY = margin;
     
-    // ==================== UPDATE TATA LETAK & GAYA PDF ====================
     try {
       const logoImg = new window.Image();
       logoImg.src = '/logo-operatype.png';
 
-      await new Promise((resolve) => {
+      await new Promise<void>((resolve) => {
         logoImg.onload = () => {
           doc.addImage(logoImg, 'PNG', margin, currentY, 50, 15);
-          resolve(true);
+          resolve();
         };
-        logoImg.onerror = () => { console.error("Gagal memuat logo."); resolve(false); };
+        logoImg.onerror = () => { console.error("Gagal memuat gambar logo."); resolve(); };
       });
-      currentY += 18; // Sedikit ruang setelah logo
+      currentY += 18;
     } catch (e) {
       console.error("Error saat menambahkan logo ke PDF:", e);
     }
     
-    // Detail Perusahaan (di bawah logo)
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 100, 100); // Warna abu-abu
+    doc.setTextColor(100, 100, 100);
     doc.text('Operatype.co', margin, currentY);
     currentY += 5;
     doc.text('Tasikmalaya, West Java, Indonesia', margin, currentY);
 
-    // Judul "INVOICE" dan ID (di kanan atas)
     doc.setFontSize(26);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(40, 40, 40); // Warna hitam pekat
+    doc.setTextColor(40, 40, 40);
     doc.text('INVOICE', pageW - margin, margin + 15, { align: 'right' });
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(150, 150, 150); // Warna abu-abu lebih terang
+    doc.setTextColor(150, 150, 150);
     doc.text(`#${invoice.invoice_id || 'N/A'}`, pageW - margin, margin + 21, { align: 'right' });
     
-    currentY += 15; // Jarak sebelum garis
+    currentY += 15;
 
-    // Garis Pemisah Estetik
-    doc.setDrawColor(230, 230, 230); // Warna garis abu-abu muda
-    doc.line(margin, currentY, pageW - margin, currentY); // x1, y1, x2, y2
+    doc.setDrawColor(230, 230, 230);
+    doc.line(margin, currentY, pageW - margin, currentY);
+    currentY += 15;
 
-    currentY += 15; // Jarak setelah garis
-
-    // Detail Pembeli dan Tanggal
     doc.setFontSize(9);
     doc.setTextColor(150, 150, 150);
     doc.text(`INVOICE TO:`, margin, currentY);
@@ -103,7 +97,6 @@ export default function InvoicePage({ params }: { params: { invoiceId: string } 
 
     currentY += 15;
 
-    // Tabel Item
     const tableColumn = ["Product", "License", "Users", "Price"];
     const tableRows: (string | number)[][] = [];
 
@@ -121,10 +114,10 @@ export default function InvoicePage({ params }: { params: { invoiceId: string } 
       startY: currentY,
       head: [tableColumn],
       body: tableRows,
-      theme: 'plain', // Gunakan theme 'plain' untuk kontrol penuh
+      theme: 'plain',
       headStyles: { 
-        fillColor: false, // Tanpa warna latar belakang
-        textColor: [100, 100, 100],
+        fillColor: [200, 112, 92],
+        textColor: [255, 255, 255],
         fontStyle: 'bold',
         fontSize: 10,
       },
@@ -133,36 +126,49 @@ export default function InvoicePage({ params }: { params: { invoiceId: string } 
         textColor: [40, 40, 40],
       },
       columnStyles: {
-        3: { halign: 'right' } // Rata kanan untuk kolom harga
+        3: { halign: 'right' }
       },
       margin: { left: margin, right: margin }
     });
     
     let finalY = (doc as any).lastAutoTable.finalY;
     
-    // Total
     doc.setFillColor(245, 245, 245);
     doc.rect(pageW - margin - 80, finalY + 8, 80, 12, 'F');
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text('Total:', pageW - margin - 75, finalY + 16);
     doc.text(`$${invoice.total_amount?.toFixed(2) || '0.00'}`, pageW - margin - 5, finalY + 16, { align: 'right' });
+    
+    // ==================== PERBAIKAN DI SINI ====================
+    // Posisi Y untuk footer sekarang dihitung dari posisi terakhir tabel + total
+    let footerY = finalY + 35; 
 
-    finalY += 30;
+    // Jika posisi footer terlalu dekat ke bawah, pindahkan ke halaman baru
+    const pageH = doc.internal.pageSize.height;
+    if (footerY > pageH - 20) {
+      doc.addPage();
+      footerY = margin; // Mulai dari margin atas di halaman baru
+    }
 
-    // Footer
-    doc.setFontSize(10);
+    const footerText = [
+      'Thank you for your purchase at Operatype.co.',
+      'We’re glad to be part of your creative journey.',
+      'Enjoy the font — and feel free to return anytime for more quality type.'
+    ];
+
+    doc.setFontSize(9);
     doc.setTextColor(150);
-    doc.text('Thank you for your business!', margin, finalY);
+    // Render teks pada posisi Y yang sudah dihitung
+    doc.text(footerText, margin, footerY);
+    // =========================================================
 
-    // Simpan PDF
     doc.save(`invoice-${invoice.invoice_id}.pdf`);
     toast.dismiss();
     toast.success('PDF downloaded!');
   };
   
-  // Sisa komponen JSX tidak perlu diubah, karena hanya berfungsi untuk tampilan web.
-  // ... (kode dari if(isLoading) hingga akhir file tetap sama) ...
+  // ... sisa komponen JSX tidak perlu diubah
   if (isLoading) {
     return <div className="text-center p-12">Loading Invoice...</div>;
   }
@@ -228,7 +234,7 @@ export default function InvoicePage({ params }: { params: { invoiceId: string } 
       </div>
       
       <div className="flex justify-between items-center mt-12 border-t pt-6">
-        <p className="text-sm text-gray-500">Thank you for your Purchase!</p>
+        <p className="text-sm text-gray-500">Thank you for your business!</p>
         <button
           onClick={handleDownloadPdf}
           className="flex items-center gap-2 bg-brand-orange text-white font-medium py-2 px-5 rounded-full hover:bg-brand-orange-hover transition-colors"

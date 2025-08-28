@@ -6,8 +6,6 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { LogoutIcon } from '@/components/icons';
 import Image from 'next/image';
-import { logoutAction } from '@/app/actions/authActions'; // Import Server Action
-import toast from 'react-hot-toast';
 import { useTransition } from 'react';
 
 const navLinks = [
@@ -21,14 +19,13 @@ const navLinks = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, profile } = useAuth();
+  const { user, profile, handleLogout } = useAuth(); // Ambil handleLogout dari context
   const [isPending, startTransition] = useTransition();
 
-  const handleLogout = () => {
+  // Buat fungsi wrapper sama seperti di AccountSidebar
+  const onLogoutClick = () => {
     startTransition(async () => {
-      toast.loading('Logging out...');
-      await logoutAction();
-      toast.dismiss(); // Hapus toast loading setelah selesai
+      await handleLogout(); // Gunakan fungsi dari context
     });
   };
 
@@ -69,16 +66,15 @@ export default function Sidebar() {
           <p className="font-semibold">{profile?.full_name || 'Admin'}</p>
           <p className="text-xs text-brand-gray-1">{user?.email}</p>
         </div>
-        <form action={handleLogout}>
-          <button 
-            type="submit"
-            disabled={isPending}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            <LogoutIcon className="w-5 h-5" />
-            <span>{isPending ? 'Logging out...' : 'Logout'}</span>
-          </button>
-        </form>
+        {/* Ubah dari <form> menjadi <button> */}
+        <button 
+          onClick={onLogoutClick}
+          disabled={isPending}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+        >
+          <LogoutIcon className="w-5 h-5" />
+          <span>{isPending ? 'Logging out...' : 'Logout'}</span>
+        </button>
       </div>
     </aside>
   );

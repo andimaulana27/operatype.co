@@ -10,27 +10,28 @@ interface EmailProps {
     amount: number | null;
     license_type: string | null;
   }[];
-  // PROPS BARU: Tambahkan downloadLinks
   downloadLinks: { name: string; url: string }[];
 }
 
 const PurchaseConfirmationEmail: React.FC<EmailProps> = ({ customerName, orderId, orders, downloadLinks }) => {
   const totalAmount = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
   const websiteUrl = 'https://www.operatype.co';
+  // ==================== PERBAIKAN LOGO DI SINI ====================
+  const logoUrl = `${websiteUrl}/logo-operatype.png`;
+  // ===============================================================
 
   return (
     <Html>
       <Head />
       <Body style={main}>
         <Container style={container}>
-          <Img src={`${websiteUrl}/logo.png`} width="150" height="40" alt="Operatype.co Logo" style={logo} />
+          <Img src={logoUrl} width="150" alt="Operatype.co Logo" style={logo} />
           <Heading style={heading}>Thank you for your purchase!</Heading>
           <Text style={paragraph}>Hi {customerName},</Text>
           <Text style={paragraph}>
             Your order is complete. You can download your purchased fonts using the links below. These links are valid for a limited time.
           </Text>
           
-          {/* ==================== BAGIAN BARU: LINK UNDUHAN ==================== */}
           <Section style={{ margin: '32px 0' }}>
             <Heading as="h2" style={subheading}>Your Downloads</Heading>
             {downloadLinks.map((link, index) => (
@@ -40,7 +41,6 @@ const PurchaseConfirmationEmail: React.FC<EmailProps> = ({ customerName, orderId
               </Section>
             ))}
           </Section>
-          {/* =================================================================== */}
 
           <Hr style={hr} />
 
@@ -78,7 +78,7 @@ const PurchaseConfirmationEmail: React.FC<EmailProps> = ({ customerName, orderId
 
 export default PurchaseConfirmationEmail;
 
-// --- Styles (Tambahkan style baru untuk download) ---
+// --- Styles ---
 const main = { backgroundColor: '#f6f9fc', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif' };
 const container = { backgroundColor: '#ffffff', border: '1px solid #eee', borderRadius: '5px', boxShadow: '0 5px 15px rgba(0,0,0,0.08)', margin: '20px auto', padding: '20px', width: '580px' };
 const logo = { margin: '0 auto' };
@@ -94,5 +94,4 @@ const itemPrice = { textAlign: 'right' as const };
 const totalRow = { fontWeight: '700' };
 const totalText = { margin: '0', fontSize: '16px', color: '#484848' };
 const totalPrice = { textAlign: 'right' as const };
-// STYLE BARU
 const downloadSection = { border: '1px solid #eee', borderRadius: '5px', padding: '15px', marginBottom: '10px' };

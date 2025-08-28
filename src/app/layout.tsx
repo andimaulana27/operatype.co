@@ -6,29 +6,31 @@ import { CartProvider } from '@/context/CartContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
-import ToastNotifier from '@/components/ToastNotifier'; // Ditambahkan untuk notifikasi global
+import ToastNotifier from '@/components/ToastNotifier';
 
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '500'],
 });
 
-// ==================== KODE FINAL UNTUK SEO ====================
+// ==================== KODE SEO YANG DIPERBARUI ====================
 export const metadata: Metadata = {
-  // Bagian ini akan menjadi JUDUL UTAMA yang bisa diklik
   title: {
     default: 'Operatype - High Quality Script & Display Fonts',
-    template: '%s | Operatype', 
+    template: '%s | Operatype',
   },
-  // Ini adalah deskripsi yang muncul di bawah judul
   description: 'Discover a curated library of high-quality, versatile script and display fonts. Complete with full character sets and commercial licenses, ready for any project.',
   keywords: ['script fonts', 'display fonts', 'typography', 'font foundry', 'commercial fonts', 'operatype'],
-  // Ini mendefinisikan NAMA BRAND Anda untuk Google
-  authors: [{ name: 'Operatype' }], 
+  authors: [{ name: 'Operatype' }],
+  // --- PERBAIKAN UTAMA PADA BAGIAN ICONS ---
   icons: {
-    icon: '/favicon.ico?v=1.0',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.png', type: 'image/png' }, // Menggunakan favicon.png Anda
+    ],
+    apple: '/apple-touch-icon.png', // Anda perlu membuat ikon ini (180x180px) dan letakkan di folder /public
   },
-  // Ini adalah kode verifikasi untuk Google Search Console
+  // ------------------------------------------
   verification: {
     google: 'RZZYhZYznBzZ549pRN5uIk9tFl9I5ZSLFREHY9HD310',
   },
@@ -40,7 +42,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Structured data untuk menyarankan Sitelinks kepada Google
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
