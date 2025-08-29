@@ -11,7 +11,6 @@ type DiscountInsert = Database['public']['Tables']['discounts']['Insert'];
 type DiscountUpdate = Partial<Database['public']['Tables']['discounts']['Update']>;
 
 // ==================== PERUBAHAN UTAMA DI SINI ====================
-// Action ini sekarang tidak lagi mengunggah file, hanya menerima URL.
 export async function addFontAction(formData: FormData) {
   const supabase = createServerActionClient({ cookies });
 
@@ -20,7 +19,10 @@ export async function addFontAction(formData: FormData) {
     const name = String(formData.get('name'));
     const description = String(formData.get('description'));
     const price_desktop = Number(formData.get('price_desktop'));
-    const price_business = Number(formData.get('price_business'));
+    // --- PERBAIKAN ---
+    const price_standard_commercial = Number(formData.get('price_standard_commercial'));
+    const price_extended_commercial = Number(formData.get('price_extended_commercial'));
+    // --- AKHIR PERBAIKAN ---
     const price_corporate = Number(formData.get('price_corporate'));
     const category_id = String(formData.get('category_id'));
     const partner_id = formData.get('partner_id') ? String(formData.get('partner_id')) : null;
@@ -45,7 +47,12 @@ export async function addFontAction(formData: FormData) {
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     
     const finalData = {
-      name, slug, description, price_desktop, price_business, price_corporate,
+      name, slug, description, price_desktop, 
+      // --- PERBAIKAN ---
+      price_standard_commercial, 
+      price_extended_commercial,
+      // --- AKHIR PERBAIKAN ---
+      price_corporate,
       category_id, partner_id, status, is_bestseller, glyph_string, file_size, file_types,
       tags, product_information, styles,
       main_image_url,
