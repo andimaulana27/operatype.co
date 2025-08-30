@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // --- KONFIGURASI LAMA ANDA TETAP ADA ---
+  // ... (konfigurasi Anda yang lain tidak berubah)
   images: {
     remotePatterns: [
       {
@@ -18,41 +18,39 @@ const nextConfig = {
     },
   },
 
-  // --- PENAMBAHAN HEADER KEAMANAN DI SINI ---
   async headers() {
     return [
       {
-        // Terapkan header ini ke semua rute di aplikasi Anda.
         source: '/:path*',
         headers: [
-          // Content Security Policy (CSP)
           {
             key: 'Content-Security-Policy',
             value: 
-              "default-src 'self' *.paypal.com *.supabase.co;" + // Default: hanya izinkan dari domain sendiri, PayPal, dan Supabase
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.paypal.com;" + // Izinkan skrip dari domain sendiri & PayPal
-              "img-src 'self' data: https:;" + // Izinkan gambar dari mana saja (https)
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;" + // Izinkan gaya dari domain sendiri & Google Fonts
-              "font-src 'self' https://fonts.gstatic.com;" + // Izinkan font dari domain sendiri & Google Fonts
-              "frame-src 'self' *.paypal.com;" + // Izinkan iframe dari domain sendiri & PayPal
-              "object-src 'none';", // Jangan izinkan <object>
+              "default-src 'self' *.paypal.com *.supabase.co;" +
+              // Kita tetap membutuhkan 'unsafe-eval' & 'unsafe-inline' untuk PayPal,
+              // namun kita bisa lebih spesifik di arahan lain.
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.paypal.com;" + 
+              "img-src 'self' data: https:;" +
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;" +
+              "font-src 'self' https://fonts.gstatic.com;" +
+              "frame-src 'self' *.paypal.com;" +
+              "object-src 'none';",
           },
-          // X-Frame-Options
           {
             key: 'X-Frame-Options',
             value: 'SAMEORIGIN',
           },
-          // X-Content-Type-Options
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
           },
-          // Referrer-Policy
           {
+            // --- PERBAIKAN DI SINI ---
             key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin',
+            // Mengubah ke nilai yang lebih ketat dan direkomendasikan
+            value: 'strict-origin-when-cross-origin', 
+            // -------------------------
           },
-          // Permissions-Policy
           {
             key: 'Permissions-Policy',
             value: "camera=(), microphone=(), geolocation=()",
