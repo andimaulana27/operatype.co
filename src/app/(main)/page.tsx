@@ -48,11 +48,12 @@ async function getCuratedFonts(): Promise<FontWithDetailsForCard[]> {
 
 // --- DATA STATIS (Tidak ada perubahan) ---
 const instagramImagesVersion = "1.1"; 
+const styleImagesVersion = "1.1";
 
 const styleImages = [
-    '/images/previews/font-style-preview-1.jpg',
-    '/images/previews/font-style-preview-2.jpg',
-    '/images/previews/font-style-preview-3.jpg',
+    `/images/previews/font-style-preview-1.jpg?v=${styleImagesVersion}`,
+    `/images/previews/font-style-preview-2.png?v=${styleImagesVersion}`,
+    `/images/previews/font-style-preview-3.png?v=${styleImagesVersion}`,
 ];
 const instagramImages = [
   `/images/previews/instagram-preview-1.jpg?v=${instagramImagesVersion}`,
