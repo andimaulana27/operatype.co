@@ -60,7 +60,7 @@ const LicenseComparisonTable = () => (
             </tr>
             {group.features.map((feature, index) => (
               <tr key={feature.name} className="border-b border-gray-200 last:border-b-0 hover:bg-orange-50/20">
-                <td className="px-6 py-4 font-medium text-gray-800">{feature.name}</td>
+                <td className="pl-10 pr-6 py-4 font-medium text-gray-800">{feature.name}</td>
                 <td className="px-6 py-4 text-center"><FeatureCell value={feature.desktop} /></td>
                 <td className="px-6 py-4 text-center"><FeatureCell value={feature.standard} /></td>
                 <td className="px-6 py-4 text-center"><FeatureCell value={feature.extended} /></td>
@@ -170,24 +170,25 @@ export default function LicensePage() {
   return (
     <div className="bg-gray-50">
       <div className="container mx-auto px-4 py-20">
+        {/* ==================== PERUBAHAN DI SINI ==================== */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-semibold text-brand-black tracking-tight">Our Licenses</h1>
-          <div className="w-24 h-1 bg-brand-orange mx-auto my-6"></div>
-          <p className="text-xl font-light text-brand-gray-1 max-w-3xl mx-auto">
+          {/* 1. Ketebalan font diubah ke 'medium' agar sesuai dengan gambar */}
+          <h1 className="text-5xl font-medium text-brand-black">Our Licenses</h1>
+          {/* 2. Ukuran garis disesuaikan menjadi tinggi 3px dan lebar 80px */}
+          <div className="w-20 h-[3px] bg-brand-orange mx-auto my-6"></div>
+          {/* 3. Ukuran font sub-headline diubah ke 'lg' (18px) */}
+          <p className="text-lg font-light text-brand-gray-1 max-w-3xl mx-auto">
             Simple, clear, and comprehensive terms to help you create with confidence. Find the perfect fit for your project.
           </p>
         </div>
+        {/* ========================================================== */}
 
-        {/* ==================== BAGIAN TABEL PERBANDINGAN ==================== */}
         <section className="mb-20">
-          {/* --- PERBAIKAN: text-center diubah menjadi text-left --- */}
           <h2 className="text-4xl font-semibold text-brand-black tracking-tight text-left mb-10">At a Glance</h2>
           <LicenseComparisonTable />
         </section>
         
-        {/* ==================== BAGIAN DETAIL LISENSI ==================== */}
         <section>
-          {/* --- PERBAIKAN: text-center diubah menjadi text-left --- */}
           <h2 className="text-4xl font-semibold text-brand-black tracking-tight text-left mb-10">License Details</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <LicenseCard
@@ -264,7 +265,6 @@ export default function LicensePage() {
           </div>
         </section>
 
-        {/* ==================== KARTU KUSTOM DENGAN DESAIN BARU ==================== */}
         <div className="mt-12 bg-gray-900 rounded-2xl p-10 flex flex-col justify-center items-center text-center">
            <h3 className="text-3xl font-semibold text-white">Need a Custom Solution?</h3>
            <p className="font-light text-gray-300 mt-4 max-w-3xl">

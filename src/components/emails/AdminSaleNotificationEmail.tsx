@@ -14,7 +14,7 @@ interface AdminEmailProps {
 }
 
 const AdminSaleNotificationEmail: React.FC<AdminEmailProps> = ({ orderId, totalAmount, customerName, customerEmail, items }) => {
-  const websiteUrl = 'https://www.operatype.co';
+  const websiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.operatype.co';
   // ==================== PERBAIKAN LOGO DI SINI ====================
   const logoUrl = `${websiteUrl}/logo-operatype.png`;
   // ===============================================================

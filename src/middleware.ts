@@ -10,14 +10,15 @@ export async function middleware(req: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   
   const { pathname } = req.nextUrl;
+  
+  const publicUrls = ['/login', '/forgot-password', '/reset-password'];
 
-  // Aturan 1: Jika BELUM login dan mencoba akses halaman terproteksi
-  if (!session && (pathname.startsWith('/account') || pathname.startsWith('/admin'))) {
-    // Arahkan ke halaman login
+  const isPublicUrl = publicUrls.some(url => pathname.startsWith(url));
+
+  if (!session && !isPublicUrl && (pathname.startsWith('/account') || pathname.startsWith('/admin'))) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  // Aturan 2: Jika SUDAH login dan BUKAN admin, tapi mencoba akses halaman admin
   if (session && pathname.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -26,20 +27,17 @@ export async function middleware(req: NextRequest) {
       .single();
     
     if (profile?.role !== 'admin') {
-      // Arahkan ke halaman utama
       return NextResponse.redirect(new URL('/', req.url));
     }
   }
+  
+  // Blok kode yang tidak perlu dihapus dari sini
 
-  // Jika semua aturan di atas tidak terpenuhi, izinkan akses
   return res;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Cocokkan semua path request kecuali untuk file-file internal Next.js
-     */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };

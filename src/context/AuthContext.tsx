@@ -17,7 +17,6 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  // FUNGSI BARU: Tambahkan fungsi untuk menangani logout
   handleLogout: () => Promise<void>; 
 };
 
@@ -68,8 +67,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
-        // Setiap kali state auth berubah (login/logout),
-        // ambil data terbaru dan segarkan state dari server.
+        // --- PERBAIKAN UTAMA DI SINI ---
+        // Alur reset password ditangani secara lokal oleh komponen ResetPasswordForm.
+        // AuthContext harus mengabaikan event ini untuk mencegah refresh halaman yang tidak perlu
+        // yang dapat menghilangkan token dari URL.
+        if (event === 'PASSWORD_RECOVERY') {
+          return;
+        }
+        // --- AKHIR PERBAIKAN ---
+
+        // Untuk event lain (SIGNED_IN, SIGNED_OUT, etc.), jalankan seperti biasa.
         getSessionAndProfile();
         router.refresh(); 
       }
@@ -80,7 +87,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [getSessionAndProfile, router]);
   
-  // FUNGSI BARU: Logika logout terpusat
   const handleLogout = async () => {
     toast.loading('Logging out...');
     const { error } = await supabase.auth.signOut();
@@ -90,14 +96,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.error(`Logout failed: ${error.message}`);
     } else {
       toast.success('You have been logged out.');
-      // onAuthStateChange akan menangani sisanya (reset state & refresh)
       router.push('/');
     }
   };
   
   const value = { session, user, profile, loading, handleLogout };
 
-  // Mencegah render komponen anak sebelum sesi selesai diperiksa
   if (loading) {
     return null; 
   }

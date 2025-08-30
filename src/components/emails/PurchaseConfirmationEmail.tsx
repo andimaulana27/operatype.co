@@ -15,7 +15,7 @@ interface EmailProps {
 
 const PurchaseConfirmationEmail: React.FC<EmailProps> = ({ customerName, orderId, orders, downloadLinks }) => {
   const totalAmount = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
-  const websiteUrl = 'https://www.operatype.co';
+  const websiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.operatype.co';
   // ==================== PERBAIKAN LOGO DI SINI ====================
   const logoUrl = `${websiteUrl}/logo-operatype.png`;
   // ===============================================================

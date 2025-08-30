@@ -5,7 +5,7 @@ import { Database } from '@/lib/database.types'
 
 // Fungsi untuk membuat sitemap
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://www.operatype.co' // Ganti dengan URL produksi Anda
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.operatype.co';
 
   // Inisialisasi Supabase client (hanya untuk membaca data publik)
   const supabase = createClient<Database>(

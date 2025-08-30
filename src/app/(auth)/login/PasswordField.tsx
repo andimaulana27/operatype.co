@@ -4,8 +4,17 @@
 import React, { useState } from 'react'; // Import React dan useState
 import { EyeIcon, EyeSlashIcon } from '@/components/icons';
 
-// Ini adalah komponen PasswordField yang sudah dipisahkan
-export default function PasswordField({ name, placeholder }: { name: string; placeholder: string; }) {
+// ==================== PERUBAHAN DI SINI ====================
+// Tambahkan `autoComplete` ke dalam tipe props
+export default function PasswordField({
+    name,
+    placeholder,
+    autoComplete
+}: {
+    name: string;
+    placeholder: string;
+    autoComplete?: string; // Jadikan opsional
+}) {
   const [show, setShow] = useState(false);
   
   return (
@@ -13,7 +22,9 @@ export default function PasswordField({ name, placeholder }: { name: string; pla
       <input 
         type={show ? 'text' : 'password'} 
         name={name}
-        placeholder={placeholder} 
+        placeholder={placeholder}
+        // Terapkan autoComplete di sini
+        autoComplete={autoComplete}
         className="w-full p-4 bg-brand-gray-2 rounded-lg focus:outline-none" 
         required 
       />
