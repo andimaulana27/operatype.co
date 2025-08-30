@@ -56,9 +56,9 @@ const styleImages = [
     `/images/previews/font-style-preview-3.png?v=${styleImagesVersion}`,
 ];
 const instagramImages = [
-  `/images/previews/instagram-preview-1.jpg?v=${instagramImagesVersion}`,
-  `/images/previews/instagram-preview-2.jpg?v=${instagramImagesVersion}`,
   `/images/previews/instagram-preview-3.jpg?v=${instagramImagesVersion}`,
+  `/images/previews/instagram-preview-2.jpg?v=${instagramImagesVersion}`,
+  `/images/previews/instagram-preview-1.jpg?v=${instagramImagesVersion}`,
   `/images/previews/instagram-preview-4.jpg?v=${instagramImagesVersion}`,
   `/images/previews/instagram-preview-5.jpg?v=${instagramImagesVersion}`,
 ];

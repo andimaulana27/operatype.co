@@ -1,9 +1,11 @@
+// src/app/actions/emailActions.ts
 'use server';
 
 import { Resend } from 'resend';
 import PurchaseConfirmationEmail from '@/components/emails/PurchaseConfirmationEmail';
 import AdminSaleNotificationEmail from '@/components/emails/AdminSaleNotificationEmail';
 import { Database } from '@/lib/database.types';
+import ContactFormEmail from '@/components/emails/ContactFormEmail';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -21,9 +23,7 @@ export async function sendPurchaseConfirmationEmail(
 ) {
   try {
     await resend.emails.send({
-      // ==================== PERBAIKAN PENGIRIM DI SINI ====================
-      from: 'Operatype.co <sales@operatype.co>', // Kembalikan ke alamat di domain terverifikasi Anda
-      // ====================================================================
+      from: 'Operatype.co <sales@operatype.co>',
       to: userDetails.email,
       subject: `Your Operatype.co Order Confirmation (#${transactionDetails.orderId})`,
       react: PurchaseConfirmationEmail({
@@ -51,10 +51,8 @@ export async function sendAdminSaleNotification(
     const totalAmount = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
     try {
         await resend.emails.send({
-            // ==================== PERBAIKAN PENGIRIM & PENERIMA DI SINI ====================
-            from: 'Operatype.co Sales <sales@operatype.co>', // Kembalikan ke alamat di domain terverifikasi Anda
-            to: 'operatype.co@gmail.com', // Alamat penerima admin sudah benar
-            // ===========================================================================
+            from: 'Operatype.co Sales <sales@operatype.co>',
+            to: 'operatype.co@gmail.com',
             subject: `🎉 New Sale! Order #${transactionDetails.orderId} for $${totalAmount.toFixed(2)}`,
             react: AdminSaleNotificationEmail({
                 orderId: transactionDetails.orderId,
@@ -69,4 +67,36 @@ export async function sendAdminSaleNotification(
         console.error('Admin notification error:', error);
         return { error: 'Failed to send admin notification.' };
     }
+}
+
+export async function sendContactFormEmail(formData: FormData) {
+  const name = String(formData.get('name'));
+  const email = String(formData.get('email'));
+  const subject = String(formData.get('subject'));
+  const message = String(formData.get('message'));
+  
+  if (!name || !email || !subject || !message) {
+    return { error: 'Please fill out all fields.' };
+  }
+
+  try {
+    await resend.emails.send({
+      from: 'Operatype.co Contact Form <contact@operatype.co>',
+      to: 'operatype.co@gmail.com',
+      // --- PERBAIKAN DI SINI ---
+      replyTo: email, // Diubah dari reply_to menjadi replyTo (camelCase)
+      // -------------------------
+      subject: `New Contact Message: ${subject}`,
+      react: ContactFormEmail({
+        senderName: name,
+        senderEmail: email,
+        subject: subject,
+        message: message,
+      }),
+    });
+    return { success: 'Your message has been sent successfully!' };
+  } catch (error) {
+    console.error('Contact form email error:', error);
+    return { error: 'Sorry, something went wrong. Please try again later.' };
+  }
 }

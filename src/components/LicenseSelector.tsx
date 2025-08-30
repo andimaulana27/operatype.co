@@ -25,45 +25,44 @@ const formatDate = (dateString: string | null) => {
     });
 };
 
-// ==================== PERBAIKAN 1: DATA LISENSI YANG LEBIH DETAIL ====================
+// --- 1. Teks diubah ke Bahasa Inggris ---
 const licenseDetails = {
     'Desktop': {
-        description: "Untuk penggunaan personal & proyek non-komersial.",
+        description: "For personal & non-commercial projects.",
         features: [
-            "Proyek pribadi (tugas sekolah, portofolio)",
-            "Penggunaan di perangkat pribadi",
-            "Satu pengguna (user)",
+            "Personal projects (school assignments, portfolio)",
+            "Use on personal devices",
+            "One user",
         ]
     },
     'Standard Commercial': {
-        description: "Untuk freelancer, desainer, dan bisnis skala kecil.",
+        description: "For freelancers, designers, and small-scale businesses.",
         features: [
-            "Proyek komersial & personal tanpa batas",
-            "Penggunaan untuk logo & branding klien",
-            "Produk cetak untuk dijual (baju, stiker, dll)",
-            "1 User / 2 Perangkat",
+            "Unlimited commercial & personal projects",
+            "Use for client logos & branding",
+            "Printed products for sale (shirts, stickers, etc.)",
+            "1 User / 2 Devices",
         ]
     },
     'Extended Commercial': {
-        description: "Untuk agensi, startup, dan kreator konten digital.",
+        description: "For agencies, startups, and digital content creators.",
         features: [
-            "Semua fitur lisensi Standard",
-            "Web Embedding (hingga 1 juta views/bulan)",
-            "Penggunaan di Aplikasi & Game (hingga 100rb download)",
-            "Max 5 Users / 5 Perangkat",
+            "All Standard license features",
+            "Web Embedding (up to 1M views/month)",
+            "Use in Apps & Games (up to 100k downloads)",
+            "Max 5 Users / 5 Devices",
         ]
     },
     'Corporate': {
-        description: "Untuk perusahaan skala menengah hingga besar.",
+        description: "For medium to large-scale companies.",
         features: [
-            "Semua fitur lisensi Extended",
-            "Web Embedding & Aplikasi tanpa batas",
-            "Penggunaan untuk siaran TV & Iklan Skala besar",
+            "All Extended license features",
+            "Unlimited Web Embedding & Apps",
+            "Use for TV broadcasts & large-scale ads",
             "Max 20 Users",
         ]
     }
 };
-// =================================================================================
 
 const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
   const [selectedLicense, setSelectedLicense] = useState<LicenseType>('Desktop');
@@ -87,34 +86,53 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
   };
 
   useEffect(() => {
-    let currentUserCount = 1;
-    if (selectedLicense === 'Standard Commercial') currentUserCount = 1;
-    else if (selectedLicense === 'Extended Commercial') currentUserCount = 5;
-    else if (selectedLicense === 'Corporate') currentUserCount = 20;
-    else currentUserCount = userCount;
-
+    // --- 2. Perbaikan Logika User Count ---
+    let newUsers = 1;
+    if (selectedLicense === 'Standard Commercial') {
+      newUsers = 1;
+    } else if (selectedLicense === 'Extended Commercial') {
+      newUsers = 5;
+    } else if (selectedLicense === 'Corporate') {
+      newUsers = 20;
+    } else {
+      // Jika kembali ke Desktop, pastikan userCount kembali ke 1
+      // jika sebelumnya berasal dari license lain.
+      if (userCount > 1 && selectedLicense === 'Desktop') {
+          setUserCount(1);
+      }
+      newUsers = userCount;
+    }
+    
+    // Hanya perbarui userCount jika tipe lisensi BUKAN Desktop
+    if (selectedLicense !== 'Desktop') {
+        setUserCount(newUsers);
+    }
+    
     const basePrice = getBasePrice(selectedLicense);
-    let finalPrice = basePrice; 
+    // Untuk Desktop, harga dikalikan dengan jumlah user
+    const finalBasePrice = selectedLicense === 'Desktop' ? basePrice * userCount : basePrice;
 
+    let finalPrice = finalBasePrice; 
     if (activeDiscount && activeDiscount.percentage) {
         finalPrice = finalPrice - (finalPrice * activeDiscount.percentage / 100);
     }
 
     setTotalPrice(finalPrice);
-    if (selectedLicense !== 'Desktop') setUserCount(currentUserCount);
 
   }, [selectedLicense, userCount, font, activeDiscount]);
 
   const handleAddToCart = () => {
     const basePriceForLicenseType = getBasePrice(selectedLicense);
+    const finalUsers = selectedLicense === 'Desktop' ? userCount : (licenseDetails[selectedLicense].features.find(f => f.includes('User'))?.split(' ')[1] || 1);
+
 
     const itemToAdd: Omit<CartItem, 'id'> = {
       fontId: font.id,
       name: font.name,
       license: selectedLicense,
       price: totalPrice,
-      originalPrice: basePriceForLicenseType * userCount,
-      users: userCount,
+      originalPrice: selectedLicense === 'Desktop' ? basePriceForLicenseType * userCount : basePriceForLicenseType,
+      users: Number(finalUsers),
       imageUrl: font.main_image_url,
       discountName: activeDiscount?.name || null,
       discountPercentage: activeDiscount?.percentage || null,
@@ -150,7 +168,6 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
                 className="flex items-start justify-between"
             >
                 <div className="flex items-start gap-4">
-                    {/* Checkbox */}
                     <div className={`w-6 h-6 border-2 rounded-md flex-shrink-0 mt-0.5 flex items-center justify-center transition-all duration-200
                         ${isActive ? 'border-brand-orange bg-brand-orange' : 'border-gray-300 bg-white'}`}>
                         {isActive && <Check size={16} className="text-white" />}
@@ -172,7 +189,6 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
                 </div>
             </div>
 
-            {/* ==================== PERBAIKAN 2: TAMPILAN DETAIL BARU ==================== */}
             {isActive && (
                 <div className="pl-10 pt-4 mt-4 border-t border-gray-200">
                     <ul className="space-y-2">
@@ -204,7 +220,6 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
                     )}
                 </div>
             )}
-            {/* ================================================================================= */}
         </div>
     );
   };

@@ -11,8 +11,8 @@ import { supabase } from '@/lib/supabaseClient';
 
 export default function LoginPage() {
   const [isRegisterView, setIsRegisterView] = useState(false);
-  const [isOtpView, setIsOtpView] = useState(false); // State baru untuk view OTP
-  const [userEmail, setUserEmail] = useState(''); // State untuk menyimpan email
+  const [isOtpView, setIsOtpView] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   
@@ -40,7 +40,7 @@ export default function LoginPage() {
           .eq('id', data.user.id)
           .single();
         
-        toast.success('Login berhasil! Selamat datang.');
+        toast.success('Login successful! Welcome.');
         const redirectTo = profile?.role === 'admin' ? '/admin/dashboard' : '/account';
         router.push(redirectTo);
         router.refresh();
@@ -50,7 +50,7 @@ export default function LoginPage() {
 
   const handleRegisterSubmit = (formData: FormData) => {
     const email = String(formData.get('email'));
-    setUserEmail(email); // Simpan email untuk step berikutnya
+    setUserEmail(email);
 
     startTransition(async () => {
       const result = await registerAction(formData);
@@ -58,26 +58,31 @@ export default function LoginPage() {
         toast.error(result.error);
       } else {
         toast.success('Registration successful! Please check your email for an OTP.');
-        setIsOtpView(true); // Pindah ke view OTP
+        setIsOtpView(true);
       }
     });
   };
 
+  // --- PERBAIKAN UTAMA DI SINI ---
   const handleOtpSubmit = (formData: FormData) => {
     formData.append('email', userEmail);
     startTransition(async () => {
       const result = await verifyOtpAction(formData);
       if (result?.error) {
         toast.error(result.error);
-      } else {
+      } else if (result.session) {
+        // Secara manual atur sesi di client setelah OTP valid
+        await supabase.auth.setSession({
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+        });
         toast.success('Verification successful! Welcome.');
-        router.push('/account');
-        router.refresh();
+        router.push('/account'); // Redirect ke halaman akun
+        router.refresh(); // Refresh layout untuk memperbarui navbar
       }
     });
   };
 
-  // Render form OTP jika isOtpView true
   if (isOtpView) {
     return (
        <div className="relative w-full max-w-md h-auto bg-white rounded-2xl shadow-lg p-8">
@@ -99,11 +104,8 @@ export default function LoginPage() {
     );
   }
 
-  // Render form Login/Register seperti biasa
   return (
       <div className="relative w-full max-w-4xl h-auto md:h-[650px] bg-white rounded-2xl shadow-lg overflow-hidden">
-        {/* ... (toast notifikasi tetap sama) ... */}
-
         <div className="absolute top-0 left-0 w-full h-full flex flex-col md:flex-row z-10">
           <div className="w-full md:w-1/2 flex items-center justify-center p-8 md:p-12">
             <form onSubmit={handleLoginSubmit} className="w-full text-center">

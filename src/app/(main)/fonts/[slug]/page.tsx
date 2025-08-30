@@ -118,13 +118,23 @@ export default async function FontDetailPage({
               fontFamilyRegular={dynamicFontFamilyRegular}
               fontFamilyItalic={font.display_font_italic_url ? dynamicFontFamilyItalic : undefined}
             />
-            {/* ==================== KONTEN DIKEMBALIKAN KE SINI TANPA GARIS ==================== */}
+            
             <div className="mt-16">
               <SectionHeader title="About The Product" />
               <p className="font-light text-brand-black whitespace-pre-line">
                 {font.description}
               </p>
             </div>
+
+            {/* --- PERUBAHAN DI SINI: BAGIAN TAG DIPINDAHKAN KE BAWAH DESKRIPSI --- */}
+            <div className="mt-12">
+                <SectionHeader title="Tags" />
+                <p className="font-light text-brand-black leading-relaxed">
+                  {(Array.isArray(font.tags) ? (font.tags as string[]).join(', ') : '')}
+                </p>
+            </div>
+            {/* -------------------------------------------------------------------- */}
+
             <div className="mt-12">
               <SectionHeader title="Glyph" />
               <GlyphViewer 
@@ -132,7 +142,6 @@ export default async function FontDetailPage({
                 fontFamily={dynamicFontFamilyRegular}
               />
             </div>
-            {/* ============================================================================== */}
           </div>
 
           <div className="w-full">
@@ -161,6 +170,7 @@ export default async function FontDetailPage({
                 </span>
               </Link>
             </div>
+            {/* --- BAGIAN TAG DIHAPUS DARI KOLOM KANAN --- */}
             <div className="space-y-8 mt-16 border-t pt-16">
               <div>
                 <SectionHeader title="Category" />
@@ -194,12 +204,6 @@ export default async function FontDetailPage({
                 <ul className="list-disc list-inside ml-2 space-y-1 font-light text-brand-black">
                   {(Array.isArray(font.styles) ? font.styles as string[] : []).map((style: string) => <li key={style}>{style}</li>)}
                 </ul>
-              </div>
-              <div>
-                <SectionHeader title="Tags" />
-                <p className="font-light text-brand-black leading-relaxed">
-                  {(Array.isArray(font.tags) ? (font.tags as string[]).join(', ') : '')}
-                </p>
               </div>
             </div>
           </div>
