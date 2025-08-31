@@ -32,7 +32,7 @@ const nextConfig = {
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.paypal.com;" + 
               "img-src 'self' data: https:;" +
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;" +
-              "font-src 'self' https://fonts.gstatic.com;" +
+              "font-src 'self' https://fonts.gstatic.com https://qdatempkonebloyfiukj.supabase.co;" +
               "frame-src 'self' *.paypal.com;" +
               "object-src 'none';",
           },
