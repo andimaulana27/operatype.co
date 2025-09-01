@@ -1,12 +1,12 @@
 // src/app/(admin)/admin/dashboard/page.tsx
-import { createClient } from '@supabase/supabase-js'; // PERBAIKAN: Import createClient standar
+
+import { createClient } from '@supabase/supabase-js';
 import { SupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers'; // cookies masih dibutuhkan jika ada logic user-specific
 import { Database } from '@/lib/database.types';
 import Link from 'next/link';
 import SalesChart from '@/components/admin/SalesChart';
 
-// PERBAIKAN: Semua tipe data tetap sama
+// Tipe data dan fungsi-fungsi pengambilan data tidak perlu diubah
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Purchase = Database['public']['Tables']['purchases']['Row'];
 
@@ -14,7 +14,6 @@ type PurchaseWithDetails = Purchase & {
   profiles: Pick<Profile, 'full_name'> | null;
 };
 
-// PERBAIKAN: Fungsi-fungsi ini sekarang menerima SupabaseClient sebagai argumen
 async function getDashboardStats(supabase: SupabaseClient<Database>) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -107,20 +106,21 @@ const StatCard = ({ title, value }: { title: string, value: string | number }) =
 );
 
 export default async function DashboardPage() {
-  // ==================== PERBAIKAN UTAMA ====================
-  // Menggunakan createClient dengan Service Role Key untuk melewati RLS
   const supabaseAdmin = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   );
-  // =========================================================
 
-  // Mengirimkan koneksi admin ke semua fungsi
-  const stats = await getDashboardStats(supabaseAdmin);
-  const recentPurchases = await getRecentPurchases(supabaseAdmin);
-  const topFonts = await getTopSellingFonts(supabaseAdmin);
-  const salesData = await getSalesDataForChart(supabaseAdmin);
+  // ==================== PERBAIKAN KINERJA ====================
+  // Jalankan semua promise pengambilan data secara paralel, bukan berurutan.
+  const [stats, recentPurchases, topFonts, salesData] = await Promise.all([
+    getDashboardStats(supabaseAdmin),
+    getRecentPurchases(supabaseAdmin),
+    getTopSellingFonts(supabaseAdmin),
+    getSalesDataForChart(supabaseAdmin)
+  ]);
+  // =========================================================
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -129,6 +129,7 @@ export default async function DashboardPage() {
 
   return (
     <div>
+      {/* Bagian JSX (tampilan) tidak perlu diubah */}
       <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
       <div className="w-24 h-1 bg-brand-orange my-4"></div>
 

@@ -319,3 +319,150 @@ export async function updateDiscountAction(discountId: string, updateData: Disco
     return { error: error.message };
   }
 }
+
+export async function getAdminFontsAction(options: {
+  page: number;
+  limit: number;
+  searchTerm?: string;
+  category?: string;
+  partner?: string;
+}) {
+  const { page, limit, searchTerm, category, partner } = options;
+  
+  // Gunakan service key untuk akses penuh
+  const supabaseAdmin = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    let query = supabaseAdmin
+      .from('fonts')
+      .select(`
+        *, 
+        categories(name), 
+        partners(name), 
+        order_items(count), 
+        font_discounts(discounts(*))
+      `, { count: 'exact' });
+
+    if (searchTerm) {
+      query = query.ilike('name', `%${searchTerm}%`);
+    }
+    if (category) {
+      query = query.eq('category_id', category);
+    }
+    if (partner) {
+      query = query.eq('partner_id', partner);
+    }
+
+    const start = (page - 1) * limit;
+    const end = start + limit - 1;
+    
+    query = query.order('created_at', { ascending: false }).range(start, end);
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+    
+    return { data, count, error: null };
+
+  } catch (error: any) {
+    console.error("Admin fonts fetch error:", error.message);
+    return { data: [], count: 0, error: error.message };
+  }
+}
+
+export async function applyDiscountToFontsAction(
+  fontIds: string[],
+  discountId: string | null
+) {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    // Selalu hapus relasi diskon yang lama terlebih dahulu
+    const { error: deleteError } = await supabaseAdmin
+      .from('font_discounts')
+      .delete()
+      .in('font_id', fontIds);
+
+    if (deleteError) throw new Error(`Error clearing existing discounts: ${deleteError.message}`);
+
+    // Jika ada discountId baru, sisipkan relasi yang baru
+    if (discountId) {
+      const recordsToInsert = fontIds.map(fontId => ({
+        font_id: fontId,
+        discount_id: discountId,
+      }));
+      
+      const { error: insertError } = await supabaseAdmin
+        .from('font_discounts')
+        .insert(recordsToInsert);
+        
+      if (insertError) throw new Error(`Failed to apply discount: ${insertError.message}`);
+      
+      revalidatePath('/');
+      revalidatePath('/fonts');
+      return { success: `Discount applied to ${fontIds.length} font(s).` };
+    }
+    
+    revalidatePath('/');
+    revalidatePath('/fonts');
+    return { success: `Discounts removed from ${fontIds.length} font(s).` };
+
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+export async function getAvailableHomepageFontsAction(options: {
+  page: number;
+  limit: number;
+  searchTerm?: string;
+  showBestsellers?: boolean;
+}) {
+  const { page, limit, searchTerm, showBestsellers } = options;
+  
+  const supabaseAdmin = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    let query = supabaseAdmin
+      .from('fonts')
+      .select('*', { count: 'exact' })
+      .eq('status', 'Published');
+
+    // ==================== PERBAIKAN BUG ====================
+    // Gunakan .or() untuk mencari font yang kolom homepage_section-nya
+    // entah NULL (belum pernah diatur) ATAU 'none' (sudah dihapus dari homepage).
+    query = query.or('homepage_section.is.null,homepage_section.eq.none');
+    // =======================================================
+
+    if (searchTerm) {
+      query = query.ilike('name', `%${searchTerm}%`);
+    }
+    if (showBestsellers) {
+      query = query.eq('is_bestseller', true);
+    }
+
+    const start = (page - 1) * limit;
+    const end = start + limit - 1;
+    
+    query = query.order('name', { ascending: true }).range(start, end);
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+    
+    return { data, count, error: null };
+
+  } catch (error: any) {
+    console.error("Available homepage fonts fetch error:", error.message);
+    return { data: [], count: 0, error: error.message };
+  }
+}

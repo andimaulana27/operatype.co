@@ -1,26 +1,23 @@
 // src/app/(main)/partners/page.tsx
 
-// PERBAIKAN: Menambahkan revalidate = 0
-// Baris ini akan memaksa Next.js untuk selalu mengambil data partner terbaru
-// dari database setiap kali halaman ini dibuka. Ini akan menyelesaikan masalah
-// di mana partner yang sudah dihapus masih muncul.
-export const revalidate = 0;
+// ==================== PERBAIKAN KINERJA ====================
+// Ubah revalidate dari 0 menjadi 3600 (1 jam).
+// Halaman ini sekarang akan menjadi statis dan dimuat secara instan.
+export const revalidate = 3600;
 
 import Link from 'next/link';
 import Image from 'next/image';
 import SectionTitle from '@/components/SectionTitle';
 import { supabase } from '@/lib/supabaseClient';
-import { Database } from '@/lib/database.types'; // Impor tipe Database
+import { Database } from '@/lib/database.types';
 
-// Menggunakan tipe Partner dari file definisi tipe
 type Partner = Database['public']['Tables']['partners']['Row'];
 
-// Fungsi untuk mengambil data semua partner
 async function getPartners(): Promise<Partner[]> {
   const { data, error } = await supabase
     .from('partners')
     .select('*')
-    .order('name', { ascending: true }); // Menambahkan pengurutan agar konsisten
+    .order('name', { ascending: true });
 
   if (error) {
     console.error('Error fetching partners:', error);
@@ -32,7 +29,6 @@ async function getPartners(): Promise<Partner[]> {
 const PartnerCard = ({ name, description, logoUrl, slug }: { name: string; description: string; logoUrl: string | null; slug: string; }) => (
   <div className="text-center flex flex-col items-center">
     <div className="relative w-full h-24 mb-6">
-      {/* Menambahkan placeholder jika logo_url null */}
       <Image src={logoUrl || '/placeholder-logo.png'} alt={`${name} logo`} layout="fill" objectFit="contain" />
     </div>
     <h3 className="text-2xl font-medium text-brand-black">{name}</h3>

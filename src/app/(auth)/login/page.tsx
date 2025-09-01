@@ -159,21 +159,21 @@ export default function LoginPage() {
         <div className={`absolute top-0 left-0 w-full md:w-1/2 h-full bg-brand-orange text-white flex items-center justify-center p-12 text-center rounded-2xl transition-transform duration-700 ease-in-out z-20 ${isRegisterView ? 'translate-x-full' : 'translate-x-0'}`}>
           <div className="relative w-full h-full flex items-center justify-center">
             <div className={`absolute transition-opacity duration-500 ${isRegisterView ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              <h2 className="text-3xl font-medium">Hello, Friend!</h2>
-              <p className="mt-4 font-light">Create an account and start exploring high quality typefaces.</p>
-              <button 
-                onClick={() => setIsRegisterView(false)}
-                className="mt-8 inline-block bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">
-                  Login Now
-              </button>
-            </div>
-            <div className={`absolute transition-opacity duration-500 ${isRegisterView ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               <h2 className="text-3xl font-medium">Welcome Back!</h2>
               <p className="mt-4 font-light">Sign in to continue your creative journey.</p>
               <button 
-                onClick={() => setIsRegisterView(true)}
+                onClick={() => setIsRegisterView(false)}
                 className="mt-8 inline-block bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">
                   Register Now
+              </button>
+            </div>
+            <div className={`absolute transition-opacity duration-500 ${isRegisterView ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+              <h2 className="text-3xl font-medium">Hello, Friend!</h2>
+              <p className="mt-4 font-light">Create an account and start exploring high quality typefaces.</p>
+              <button 
+                onClick={() => setIsRegisterView(true)}
+                className="mt-8 inline-block bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">
+                  Login Now
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 // src/app/(main)/terms-of-service/page.tsx
 import Link from 'next/link';
 import React from 'react';
+export const revalidate = 86400; // 1 hari
 
 // Komponen kecil untuk setiap poin agar lebih rapi
 const TermSection = ({ title, children }: { title: string, children: React.ReactNode }) => (

@@ -1,6 +1,11 @@
 // src/app/(main)/fonts/[slug]/page.tsx
 
-export const revalidate = 0;
+// ==================== PERBAIKAN KINERJA ====================
+// 1. Ubah revalidate menjadi 3600 (1 jam) atau lebih tinggi.
+// Halaman ini sekarang akan dibuat secara statis saat pertama kali diakses
+// dan dimuat secara instan untuk semua pengunjung berikutnya.
+// Pembaruan data akan terjadi di latar belakang setelah 1 jam.
+export const revalidate = 3600;
 
 import { supabase } from "@/lib/supabaseClient";
 import { notFound } from "next/navigation";
@@ -17,6 +22,8 @@ import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
 import { FontWithDetailsForCard } from "@/components/ProductCard";
 
+// Tipe data dan fungsi pengambilan data tidak perlu diubah.
+// Dengan caching, fungsi-fungsi ini hanya akan berjalan sesekali, bukan di setiap request.
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
   partners: { name: string; slug: string } | null;
@@ -87,6 +94,7 @@ export default async function FontDetailPage({
 
   return (
     <>
+      {/* Bagian JSX (tampilan) tidak ada yang perlu diubah */}
       {font.display_font_italic_url && (
         <link
           rel="preload"
@@ -126,14 +134,12 @@ export default async function FontDetailPage({
               </p>
             </div>
 
-            {/* --- PERUBAHAN DI SINI: BAGIAN TAG DIPINDAHKAN KE BAWAH DESKRIPSI --- */}
             <div className="mt-12">
                 <SectionHeader title="Tags" />
                 <p className="font-light text-brand-black leading-relaxed">
                   {(Array.isArray(font.tags) ? (font.tags as string[]).join(', ') : '')}
                 </p>
             </div>
-            {/* -------------------------------------------------------------------- */}
 
             <div className="mt-12">
               <SectionHeader title="Glyph" />
@@ -170,7 +176,6 @@ export default async function FontDetailPage({
                 </span>
               </Link>
             </div>
-            {/* --- BAGIAN TAG DIHAPUS DARI KOLOM KANAN --- */}
             <div className="space-y-8 mt-16 border-t pt-16">
               <div>
                 <SectionHeader title="Category" />

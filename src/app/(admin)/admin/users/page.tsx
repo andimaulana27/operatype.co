@@ -1,15 +1,16 @@
 // src/app/(admin)/admin/users/page.tsx
 'use client';
 
-import { useState, useEffect, useMemo, useTransition } from 'react';
-import { getUsersWithDetails, UserWithProfile } from '@/app/actions/userActions'; // Updated import
+import { useState, useEffect, useTransition } from 'react';
+import { getUsersWithDetails, UserWithProfile } from '@/app/actions/userActions';
 import { Search, UserCircle, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import AdminPagination from '@/components/admin/AdminPagination'; // Gunakan komponen pagination yang konsisten
+import { useDebouncedCallback } from 'use-debounce'; // Untuk pencarian yang lebih smooth
 
 const ITEMS_PER_PAGE = 15;
 
-// Komponen Badge Peran (Role) - Tidak ada perubahan
 const RoleBadge = ({ role }: { role: string | null }) => {
   const isAdmin = role === 'admin';
   const badgeClasses = isAdmin ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700';
@@ -22,24 +23,6 @@ const RoleBadge = ({ role }: { role: string | null }) => {
   );
 };
 
-// Komponen Paginasi - Tidak ada perubahan
-interface PaginationProps {
-    currentPage: number;
-    totalPages: number;
-    onPageChange: (page: number) => void;
-}
-const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
-    if (totalPages <= 1) return null;
-    return (
-        <div className="mt-6 flex items-center justify-between">
-            <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-2 text-sm border rounded-md disabled:opacity-50">Previous</button>
-            <span className="text-sm">Page {currentPage} of {totalPages}</span>
-            <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-4 py-2 text-sm border rounded-md disabled:opacity-50">Next</button>
-        </div>
-    );
-};
-
-
 export default function ManageUsersPage() {
   const [profiles, setProfiles] = useState<UserWithProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,20 +31,28 @@ export default function ManageUsersPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [isPending, startTransition] = useTransition();
 
+  // Gunakan useEffect untuk memanggil data dari server action
   useEffect(() => {
-    startTransition(async () => {
-      setIsLoading(true);
-      const { data, count, error } = await getUsersWithDetails(currentPage, ITEMS_PER_PAGE, searchTerm);
-
-      if (error) {
-        toast.error('Failed to fetch users: ' + error);
-      } else {
-        setProfiles(data || []);
-        setTotalUsers(count || 0);
-      }
-      setIsLoading(false);
-    });
+    const fetchUsers = () => {
+        startTransition(async () => {
+            const { data, count, error } = await getUsersWithDetails(currentPage, ITEMS_PER_PAGE, searchTerm);
+            if (error) {
+                toast.error('Failed to fetch users: ' + error);
+            } else {
+                setProfiles(data as UserWithProfile[]);
+                setTotalUsers(count || 0);
+            }
+            if (isLoading) setIsLoading(false);
+        });
+    };
+    fetchUsers();
   }, [currentPage, searchTerm]);
+
+  // Gunakan debounce untuk input pencarian agar tidak memanggil server di setiap ketikan
+  const debouncedSearch = useDebouncedCallback((term) => {
+    setSearchTerm(term);
+    setCurrentPage(1);
+  }, 300);
 
   const totalPages = Math.ceil(totalUsers / ITEMS_PER_PAGE);
 
@@ -79,11 +70,14 @@ export default function ManageUsersPage() {
           <p className="text-gray-500 mt-1">View and manage all registered users.</p>
         </div>
       </div>
-      <div className="mb-4 flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
+      <div className="mb-4 relative">
           <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input type="text" placeholder="Search by name or email..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2 border rounded-lg" />
-        </div>
+          <input 
+            type="text" 
+            placeholder="Search by name or email..." 
+            onChange={(e) => debouncedSearch(e.target.value)} 
+            className="w-full md:w-1/3 pl-10 pr-4 py-2 border rounded-lg" 
+          />
       </div>
       <div className="bg-white p-6 rounded-lg shadow-md overflow-x-auto">
         <table className="min-w-full">
@@ -96,7 +90,7 @@ export default function ManageUsersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {isLoading ? (
+            {isLoading || isPending ? (
               <tr><td colSpan={4} className="text-center py-8">Loading users...</td></tr>
             ) : profiles.length > 0 ? profiles.map((profile) => (
               <tr key={profile.id} className="hover:bg-gray-50">
@@ -116,7 +110,13 @@ export default function ManageUsersPage() {
           </tbody>
         </table>
       </div>
-      {!isLoading && totalPages > 1 && (<Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={(page: number) => setCurrentPage(page)} />)}
+      {!isLoading && totalPages > 1 && (
+        <AdminPagination 
+            currentPage={currentPage} 
+            totalPages={totalPages} 
+            onPageChange={(page: number) => setCurrentPage(page)} 
+        />
+      )}
     </div>
   );
 }

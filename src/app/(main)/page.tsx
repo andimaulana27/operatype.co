@@ -1,10 +1,11 @@
 // src/app/(main)/page.tsx
 
-// PERBAIKAN 1: Menambahkan revalidate = 0
-// Baris ini memastikan halaman utama selalu mengambil data terbaru dari database
-// setiap kali diakses. Ini akan menyelesaikan masalah diskon atau perubahan
-// lain yang tidak langsung tampil.
-export const revalidate = 0;
+// ==================== PERBAIKAN KINERJA ====================
+
+// 1. Ubah revalidate dari 0 menjadi 3600 (1 jam).
+// Halaman utama sekarang akan di-cache dan dimuat instan.
+// Data baru akan diambil dari server jika ada pengunjung setelah 1 jam.
+export const revalidate = 3600;
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -12,65 +13,51 @@ import ProductCard from '@/components/ProductCard';
 import SectionTitle from '@/components/SectionTitle';
 import HeroCarousel from '@/components/HeroCarousel';
 import { supabase } from '@/lib/supabaseClient';
-import { Database } from '@/lib/database.types';
-import { FontWithDetailsForCard } from '@/components/ProductCard'; // Menggunakan tipe yang sama persis dengan ProductCard
+import { FontWithDetailsForCard } from '@/components/ProductCard';
 
-// Fungsi untuk mengambil font yang ditandai sebagai "featured" di admin panel.
-async function getFeaturedFonts(): Promise<FontWithDetailsForCard[]> {
-  // PERBAIKAN 2: Query ini sudah benar dan akan mengambil semua data diskon terkait.
+// 2. Gabungkan dua fungsi menjadi satu untuk mengurangi panggilan database.
+async function getHomepageFonts(): Promise<FontWithDetailsForCard[]> {
   const { data, error } = await supabase
     .from('fonts')
     .select('*, font_discounts(discounts(*))')
-    .eq('homepage_section', 'featured')
+    // Ambil semua font yang merupakan bagian dari homepage dalam satu query
+    .in('homepage_section', ['featured', 'curated'])
     .order('homepage_order', { ascending: true });
 
   if (error) {
-    console.error('Error fetching featured fonts:', error);
+    console.error('Error fetching homepage fonts:', error);
     return [];
   }
   return data as FontWithDetailsForCard[];
 }
 
-// Fungsi untuk mengambil font yang ditandai sebagai "curated" di admin panel.
-async function getCuratedFonts(): Promise<FontWithDetailsForCard[]> {
-  const { data, error } = await supabase
-    .from('fonts')
-    .select('*, font_discounts(discounts(*))')
-    .eq('homepage_section', 'curated')
-    .order('homepage_order', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching curated fonts:', error);
-    return [];
-  }
-  return data as FontWithDetailsForCard[];
-}
-
-// --- DATA STATIS (Tidak ada perubahan) ---
-const instagramImagesVersion = "1.1"; 
+// Data statis tidak perlu diubah
+const instagramImagesVersion = "1.0"; 
 const styleImagesVersion = "1.1";
-
 const styleImages = [
     `/images/previews/font-style-preview-1.jpg?v=${styleImagesVersion}`,
     `/images/previews/font-style-preview-2.png?v=${styleImagesVersion}`,
     `/images/previews/font-style-preview-3.png?v=${styleImagesVersion}`,
 ];
 const instagramImages = [
-  `/images/previews/instagram-preview-3.jpg?v=${instagramImagesVersion}`,
-  `/images/previews/instagram-preview-2.jpg?v=${instagramImagesVersion}`,
   `/images/previews/instagram-preview-1.jpg?v=${instagramImagesVersion}`,
+  `/images/previews/instagram-preview-2.jpg?v=${instagramImagesVersion}`,
+  `/images/previews/instagram-preview-3.jpg?v=${instagramImagesVersion}`,
   `/images/previews/instagram-preview-4.jpg?v=${instagramImagesVersion}`,
   `/images/previews/instagram-preview-5.jpg?v=${instagramImagesVersion}`,
 ];
 
 export default async function HomePage() {
-  // Memanggil fungsi untuk mengambil data font terbaru.
-  const featuredFonts = await getFeaturedFonts();
-  const curatedFonts = await getCuratedFonts();
+  // 3. Panggil fungsi baru yang lebih efisien
+  const allHomepageFonts = await getHomepageFonts();
+
+  // 4. Pisahkan hasilnya menggunakan JavaScript (proses ini sangat cepat)
+  const featuredFonts = allHomepageFonts.filter(font => font.homepage_section === 'featured');
+  const curatedFonts = allHomepageFonts.filter(font => font.homepage_section === 'curated');
 
   return (
     <>
-      {/* 1. Hero Section */}
+      {/* Bagian JSX (tampilan) tidak ada yang perlu diubah */}
       <section className="bg-brand-white text-center pt-20 pb-12">
         <div className="container mx-auto px-4">
           <p className="text-sm font-medium text-brand-orange tracking-widest">THE ART OF SCRIPT FONTS</p>
@@ -91,12 +78,10 @@ export default async function HomePage() {
       
       <HeroCarousel />
 
-      {/* 2. Our Featured Collection Section */}
       <section className="py-24 bg-brand-white">
         <div className="container mx-auto px-4">
           <SectionTitle title="Our Featured Collection" subtitle="A curated selection of our most popular and newest script fonts, handpicked for you." />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Melewatkan data font lengkap ke ProductCard */}
             {featuredFonts.map(font => <ProductCard key={font.id} font={font} />)}
           </div>
           <div className="text-center mt-16">
@@ -107,18 +92,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 3. Curated Selections Section */}
       <section className="py-24 bg-[#F5F5F5]">
         <div className="container mx-auto px-4">
           <SectionTitle title="Curated Selections" subtitle="Our handpicked fonts and community's bestsellers." />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Melewatkan data font lengkap ke ProductCard */}
             {curatedFonts.map(font => <ProductCard key={font.id} font={font} />)}
           </div>
         </div>
       </section>
       
-      {/* 4. Find Your Perfect Style Section */}
       <section className="py-24 bg-brand-white">
         <div className="container mx-auto px-4">
           <SectionTitle title="Find Your Perfect Style" subtitle="From elegant font to modern sans-serifs, browse our collection by the mood you want to create." />
@@ -145,7 +127,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 5. Licensing with Confidence Section */}
       <section className="py-24 bg-[#F5F5F5]">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row items-center gap-12">
@@ -184,7 +165,6 @@ export default async function HomePage() {
         </div>
       </section>
       
-      {/* 6. Join Our Creative Community Section */}
       <section className="py-24 bg-brand-white">
         <div className="container mx-auto px-4 text-center">
           <SectionTitle title="Join Our Creative Community" subtitle="Follow us @operatype.co on Instagram for daily design inspiration, new font previews, and behind-the-scenes." />

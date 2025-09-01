@@ -1,9 +1,13 @@
 // src/app/(main)/license/page.tsx
+
+// Menambahkan revalidate untuk memastikan halaman ini di-cache secara statis
+export const revalidate = 86400; // 1 hari
+
 import React from 'react';
 import Link from 'next/link';
 import { CheckCircle, XCircle, Star, Check, X } from 'lucide-react';
 
-// ==================== DATA UNTUK TABEL PERBANDINGAN ====================
+// ... (sisa kode komponen tidak perlu diubah, karena sudah optimal)
 const comparisonFeatures = [
   {
     category: 'Core Usage',
@@ -31,7 +35,6 @@ const comparisonFeatures = [
   }
 ];
 
-// Helper component untuk render cell tabel
 const FeatureCell = ({ value }: { value: string | boolean | undefined }) => {
     if (typeof value === 'boolean') {
         return value ? <Check className="w-6 h-6 text-green-600 mx-auto" /> : <X className="w-6 h-6 text-red-500 mx-auto" />;
@@ -39,7 +42,6 @@ const FeatureCell = ({ value }: { value: string | boolean | undefined }) => {
     return <span className="text-gray-700 text-sm">{value}</span>;
 };
 
-// ==================== KOMPONEN TABEL PERBANDINGAN BARU ====================
 const LicenseComparisonTable = () => (
   <div className="bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden">
     <table className="w-full text-left">
@@ -74,8 +76,6 @@ const LicenseComparisonTable = () => (
   </div>
 );
 
-
-// ==================== KARTU LISENSI DENGAN DESAIN BARU ====================
 const LicenseCard = ({ 
   title, 
   subtitle, 
@@ -120,7 +120,6 @@ const LicenseCard = ({
   </div>
 );
 
-// ==================== KARTU LISENSI KORPORAT DENGAN DESAIN BARU ====================
 const CorporateLicenseCard = ({ 
   title, 
   subtitle, 
@@ -170,18 +169,13 @@ export default function LicensePage() {
   return (
     <div className="bg-gray-50">
       <div className="container mx-auto px-4 py-20">
-        {/* ==================== PERUBAHAN DI SINI ==================== */}
         <div className="text-center mb-16">
-          {/* 1. Ketebalan font diubah ke 'medium' agar sesuai dengan gambar */}
           <h1 className="text-5xl font-medium text-brand-black">Our Licenses</h1>
-          {/* 2. Ukuran garis disesuaikan menjadi tinggi 3px dan lebar 80px */}
           <div className="w-20 h-[3px] bg-brand-orange mx-auto my-6"></div>
-          {/* 3. Ukuran font sub-headline diubah ke 'lg' (18px) */}
           <p className="text-lg font-light text-brand-gray-1 max-w-3xl mx-auto">
             Simple, clear, and comprehensive terms to help you create with confidence. Find the perfect fit for your project.
           </p>
         </div>
-        {/* ========================================================== */}
 
         <section className="mb-20">
           <h2 className="text-4xl font-semibold text-brand-black tracking-tight text-left mb-10">At a Glance</h2>

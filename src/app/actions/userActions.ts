@@ -61,40 +61,51 @@ export async function updateUserPassword(userId: string, newPassword: string) {
 
 // Fungsi BARU untuk mengambil semua pengguna dengan detailnya
 export async function getUsersWithDetails(page: number, limit: number, searchTerm: string = '') {
+  // Gunakan service key untuk akses penuh
+  const supabaseAdmin = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   try {
-    const { data: { users: authUsers }, error: usersError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 10000 });
-    if (usersError) throw usersError;
+    // Query sekarang langsung ke tabel profiles
+    let query = supabaseAdmin
+      .from('profiles')
+      .select('*', { count: 'exact' });
 
-    const { data: profiles, error: profileError } = await supabaseAdmin.from('profiles').select('*');
-    if (profileError) throw profileError;
-    const profileMap = new Map(profiles.map(p => [p.id, p]));
+    // Lakukan pencarian di database jika ada search term
+    if (searchTerm) {
+      const searchPattern = `%${searchTerm}%`;
+      query = query.or(`full_name.ilike.${searchPattern},email.ilike.${searchPattern}`);
+    }
 
-    let combinedUsers: UserWithProfile[] = authUsers.map(user => ({
-      id: user.id,
-      email: user.email,
-      created_at: user.created_at,
-      full_name: profileMap.get(user.id)?.full_name || 'N/A',
-      role: profileMap.get(user.id)?.role || 'user',
+    // Terapkan paginasi di database
+    const start = (page - 1) * limit;
+    const end = start + limit - 1;
+    
+    query = query.order('created_at', { ascending: false }).range(start, end);
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+
+    // Gabungkan dengan data dari Auth untuk memastikan data selalu sinkron
+    const { data: { users: authUsers }, error: authError } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 10000 });
+    if(authError) throw authError;
+
+    const authUserMap = new Map(authUsers.map(u => [u.id, u]));
+
+    const combinedData = data.map(profile => ({
+        ...profile,
+        email: authUserMap.get(profile.id)?.email || profile.email,
+        created_at: authUserMap.get(profile.id)?.created_at || profile.created_at,
     }));
 
-    if (searchTerm) {
-      const lowercasedSearch = searchTerm.toLowerCase();
-      combinedUsers = combinedUsers.filter(user =>
-        user.full_name?.toLowerCase().includes(lowercasedSearch) ||
-        user.email?.toLowerCase().includes(lowercasedSearch)
-      );
-    }
-    
-    combinedUsers.sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime());
 
-    const totalCount = combinedUsers.length;
-    const start = (page - 1) * limit;
-    const end = start + limit;
-    const paginatedUsers = combinedUsers.slice(start, end);
-
-    return { data: paginatedUsers, count: totalCount, error: null };
+    return { data: combinedData, count, error: null };
 
   } catch (error: any) {
+    console.error("Admin users fetch error:", error.message);
     return { data: [], count: 0, error: error.message };
   }
 }

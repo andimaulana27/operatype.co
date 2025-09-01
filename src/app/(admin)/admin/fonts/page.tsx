@@ -1,17 +1,27 @@
 // src/app/(admin)/admin/fonts/page.tsx
 'use client';
 
-import { useState, useEffect, useMemo, useTransition } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Database } from '@/lib/database.types';
 import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle, Tag, Settings, X, Edit } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { deleteFontAction, updateFontStatusAction, deleteDiscountAction, updateDiscountAction, createDiscountAction } from '@/app/actions/fontActions';
+// ==================== PERBAIKAN KINERJA ====================
+// 1. Impor action baru yang akan kita gunakan
+import { 
+    getAdminFontsAction, // Action untuk mengambil data font
+    deleteFontAction, 
+    updateFontStatusAction, 
+    deleteDiscountAction, 
+    updateDiscountAction, 
+    createDiscountAction,
+    applyDiscountToFontsAction // Action baru untuk diskon
+} from '@/app/actions/fontActions'; 
 import AdminPagination from '@/components/admin/AdminPagination';
+import { supabase } from '@/lib/supabaseClient'; // Tetap dibutuhkan untuk beberapa hal
 
-// --- Tipe Data ---
+// Tipe data tidak banyak berubah, hanya perlu pastikan sinkron
 type FontRow = Database['public']['Tables']['fonts']['Row'];
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
@@ -19,17 +29,17 @@ type Discount = Database['public']['Tables']['discounts']['Row'];
 type DiscountInsert = Database['public']['Tables']['discounts']['Insert'];
 type DiscountUpdate = Database['public']['Tables']['discounts']['Update'];
 
-// --- PERBAIKAN 1: Sesuaikan Tipe Data ---
 type FontWithDetails = FontRow & {
   categories: Pick<Category, 'name'> | null;
   partners: Pick<Partner, 'name'> | null;
-  order_items: [{ count: number }]; // Diubah dari 'orders'
+  order_items: [{ count: number }];
   font_discounts: { discounts: Discount | null }[];
 };
 
 const ITEMS_PER_PAGE = 10;
 
-// --- Komponen Modal (Tidak ada perubahan) ---
+// Semua komponen Modal (Delete, DiscountForm, dll) tidak perlu diubah.
+// ... (Kode komponen Modal tetap sama seperti sebelumnya)
 const DeleteConfirmationModal = ({ 
     isOpen, 
     onClose, 
@@ -296,17 +306,23 @@ const ManageDiscountsModal = ({
     </div>
   );
 };
-
 export default function ManageFontsPage() {
-    const [fonts, setFonts] = useState<FontWithDetails[]>([]);
+    // 2. State management disederhanakan
+    const [paginatedFonts, setPaginatedFonts] = useState<FontWithDetails[]>([]);
+    const [totalFonts, setTotalFonts] = useState(0);
     const [categories, setCategories] = useState<Category[]>([]);
     const [partners, setPartners] = useState<Partner[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(true); // Hanya untuk loading awal
+    const [isPending, startTransition] = useTransition();
+
+    // State untuk filter tetap sama
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedPartner, setSelectedPartner] = useState('');
-    const [selectedFonts, setSelectedFonts] = useState<string[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
+    
+    // State untuk modal dan seleksi tetap sama
+    const [selectedFonts, setSelectedFonts] = useState<string[]>([]);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [fontsToDelete, setFontsToDelete] = useState<FontWithDetails[]>([]);
     const [isApplyDiscountModalOpen, setIsApplyDiscountModalOpen] = useState(false);
@@ -315,56 +331,76 @@ export default function ManageFontsPage() {
     const [isManageDiscountsModalOpen, setIsManageDiscountsModalOpen] = useState(false);
     const [isDiscountDeleteModalOpen, setIsDiscountDeleteModalOpen] = useState(false);
     const [discountToDelete, setDiscountToDelete] = useState<Discount | null>(null);
-    const [isPending, startTransition] = useTransition();
     const [isDiscountFormOpen, setIsDiscountFormOpen] = useState(false);
     const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null);
 
-    const fetchData = async () => {
-        setIsLoading(true);
-        // --- PERBAIKAN 2: Ubah query untuk menggunakan 'order_items' ---
-        const [fontsResult, categoriesResult, partnersResult, allDiscountsResult] = await Promise.all([
-            supabase.from('fonts').select(`*, categories(name), partners(name), order_items(count), font_discounts(discounts(*))`).order('created_at', { ascending: false }),
-            supabase.from('categories').select('*'),
-            supabase.from('partners').select('*'),
-            supabase.from('discounts').select('*').order('created_at', { ascending: false })
-        ]);
-        
-        if (fontsResult.error) toast.error(`Failed to fetch fonts: ${fontsResult.error.message}`);
-        else setFonts(fontsResult.data as any);
+    // 3. useEffect utama untuk mengambil data menggunakan Server Action
+    useEffect(() => {
+        const fetchData = () => {
+            startTransition(async () => {
+                const result = await getAdminFontsAction({
+                    page: currentPage,
+                    limit: ITEMS_PER_PAGE,
+                    searchTerm,
+                    category: selectedCategory,
+                    partner: selectedPartner,
+                });
 
-        if (categoriesResult.data) setCategories(categoriesResult.data);
-        if (partnersResult.data) setPartners(partnersResult.data);
+                if (result.error) {
+                    toast.error(result.error);
+                    setPaginatedFonts([]);
+                    setTotalFonts(0);
+                } else {
+                    setPaginatedFonts(result.data as FontWithDetails[]);
+                    setTotalFonts(result.count || 0);
+                }
+                setIsLoading(false); // Matikan loading awal setelah fetch pertama
+            });
+        };
+        fetchData();
+    }, [currentPage, searchTerm, selectedCategory, selectedPartner]);
 
-        if (allDiscountsResult.data) {
-          setAllDiscounts(allDiscountsResult.data);
-          setActiveDiscounts(allDiscountsResult.data.filter(d => d.is_active));
-        }
-        
-        setIsLoading(false);
-    };
+    // 4. useEffect untuk mengambil data filter (kategori & partner) sekali saja
+    useEffect(() => {
+        const fetchFilters = async () => {
+            const [categoriesResult, partnersResult, allDiscountsResult] = await Promise.all([
+                supabase.from('categories').select('*'),
+                supabase.from('partners').select('*'),
+                supabase.from('discounts').select('*').order('created_at', { ascending: false })
+            ]);
+            if (categoriesResult.data) setCategories(categoriesResult.data);
+            if (partnersResult.data) setPartners(partnersResult.data);
+            if (allDiscountsResult.data) {
+                setAllDiscounts(allDiscountsResult.data);
+                setActiveDiscounts(allDiscountsResult.data.filter(d => d.is_active));
+            }
+        };
+        fetchFilters();
+    }, []);
 
-    useEffect(() => { fetchData(); }, []);
+    const refreshData = () => {
+        startTransition(async () => {
+            const result = await getAdminFontsAction({
+                page: currentPage,
+                limit: ITEMS_PER_PAGE,
+                searchTerm,
+                category: selectedCategory,
+                partner: selectedPartner,
+            });
 
-    const filteredFonts = useMemo(() => {
-        return fonts.filter(font => {
-            const matchesSearch = font.name.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesCategory = selectedCategory ? font.category_id === selectedCategory : true;
-            const matchesPartner = selectedPartner ? font.partner_id === selectedPartner : true;
-            return matchesSearch && matchesCategory && matchesPartner;
+            if (result.error) {
+                toast.error(result.error);
+            } else {
+                setPaginatedFonts(result.data as FontWithDetails[]);
+                setTotalFonts(result.count || 0);
+            }
         });
-    }, [fonts, searchTerm, selectedCategory, selectedPartner]);
+    }
 
-    const totalPages = Math.ceil(filteredFonts.length / ITEMS_PER_PAGE);
-    const paginatedFonts = useMemo(() => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return filteredFonts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-    }, [filteredFonts, currentPage]);
+    const totalPages = Math.ceil(totalFonts / ITEMS_PER_PAGE);
 
-    const openDeleteModal = (fonts: FontWithDetails[]) => {
-        if (fonts.length === 0) return;
-        setFontsToDelete(fonts);
-        setIsDeleteModalOpen(true);
-    };
+    // Semua fungsi handle (delete, update, dll) sekarang memanggil `refreshData` setelah selesai
+    // agar data di halaman menjadi yang terbaru.
     
     const confirmDelete = () => {
         startTransition(async () => {
@@ -380,16 +416,77 @@ export default function ManageFontsPage() {
                 if (result.error) toast.error(result.error);
                 else if (result.success) toast.success(result.success);
             });
-            await fetchData();
+            
             setIsDeleteModalOpen(false);
             setFontsToDelete([]);
             setSelectedFonts([]);
+            refreshData(); // Refresh data
         });
     };
     
-    const openDiscountDeleteModal = (discount: Discount) => {
-      setDiscountToDelete(discount);
-      setIsDiscountDeleteModalOpen(true);
+    const handleApplyDiscount = async (discountId: string | null) => {
+        if (selectedFonts.length === 0) {
+            toast.error("No fonts selected.");
+            return;
+        }
+        startTransition(async () => {
+            const result = await applyDiscountToFontsAction(selectedFonts, discountId);
+            if (result.error) {
+                toast.error(result.error);
+            } else {
+                toast.success(result.success!);
+            }
+            setIsApplyDiscountModalOpen(false);
+            setSelectedFonts([]);
+            refreshData(); // Refresh data
+        });
+    };
+
+    const handleStatusUpdate = (fontId: string, updates: { is_bestseller: boolean }) => {
+        startTransition(async () => {
+            const result = await updateFontStatusAction(fontId, updates);
+            if (result.error) {
+                toast.error(result.error);
+            } else {
+                toast.success(result.success!);
+            }
+            refreshData(); // Refresh data
+        });
+    };
+
+    const handleSaveDiscount = async (data: DiscountInsert | DiscountUpdate, id?: string) => {
+        startTransition(async () => {
+            const result = id 
+                ? await updateDiscountAction(id, data)
+                : await createDiscountAction(data as DiscountInsert);
+
+            if (result.error) { toast.error(result.error); } 
+            else { toast.success(result.success!); }
+
+            setIsDiscountFormOpen(false);
+            // Refresh diskon setelah menyimpan
+            const { data: newDiscounts } = await supabase.from('discounts').select('*').order('created_at', { ascending: false });
+            if(newDiscounts) {
+                setAllDiscounts(newDiscounts);
+                setActiveDiscounts(newDiscounts.filter(d => d.is_active));
+            }
+        });
+    };
+    
+    const handleDeleteDiscount = (id: string) => {
+      startTransition(async () => {
+        const result = await deleteDiscountAction(id);
+        if (result.error) { toast.error(result.error); } 
+        else {
+          toast.success(result.success!);
+          // Refresh diskon setelah menghapus
+          const { data: newDiscounts } = await supabase.from('discounts').select('*').order('created_at', { ascending: false });
+          if(newDiscounts) {
+              setAllDiscounts(newDiscounts);
+              setActiveDiscounts(newDiscounts.filter(d => d.is_active));
+          }
+        }
+      });
     };
 
     const confirmDiscountDelete = () => {
@@ -397,6 +494,17 @@ export default function ManageFontsPage() {
       handleDeleteDiscount(discountToDelete.id);
       setIsDiscountDeleteModalOpen(false);
       setDiscountToDelete(null);
+    };
+    
+    const openDeleteModal = (fonts: FontWithDetails[]) => {
+        if (fonts.length === 0) return;
+        setFontsToDelete(fonts);
+        setIsDeleteModalOpen(true);
+    };
+
+    const openDiscountDeleteModal = (discount: Discount) => {
+      setDiscountToDelete(discount);
+      setIsDiscountDeleteModalOpen(true);
     };
 
     const handleOpenCreateDiscount = () => {
@@ -408,88 +516,17 @@ export default function ManageFontsPage() {
         setEditingDiscount(discount);
         setIsDiscountFormOpen(true);
     };
-
-    const handleSaveDiscount = async (data: DiscountInsert | DiscountUpdate, id?: string) => {
-        startTransition(async () => {
-            if (id) {
-                const result = await updateDiscountAction(id, data);
-                if (result.error) { toast.error(result.error); } 
-                else { toast.success(result.success!); }
-            } else {
-                const result = await createDiscountAction(data as DiscountInsert);
-                if (result.error) { toast.error(result.error); } 
-                else { toast.success(result.success!); }
-            }
-            setIsDiscountFormOpen(false);
-            await fetchData();
-        });
-    };
     
-    const handleApplyDiscount = async (discountId: string | null) => {
-        if (selectedFonts.length === 0) {
-            toast.error("No fonts selected.");
-            return;
-        }
-        startTransition(async () => {
-            const { error: deleteError } = await supabase.from('font_discounts').delete().in('font_id', selectedFonts);
-            if (deleteError) {
-                toast.error(`Error clearing existing discounts: ${deleteError.message}`);
-                setIsApplyDiscountModalOpen(false);
-                return;
-            }
-            if (discountId) {
-                const recordsToInsert = selectedFonts.map(fontId => ({ font_id: fontId, discount_id: discountId }));
-                const { error: insertError } = await supabase.from('font_discounts').insert(recordsToInsert);
-                if (insertError) { toast.error(`Failed to apply discount: ${insertError.message}`); } 
-                else { toast.success(`Discount successfully applied to ${selectedFonts.length} font(s).`); }
-            } else {
-                toast.success(`Discounts removed from ${selectedFonts.length} font(s).`);
-            }
-            await fetchData();
-            setIsApplyDiscountModalOpen(false);
-            setSelectedFonts([]);
-        });
-    };
-
-    const handleStatusUpdate = (fontId: string, updates: { is_bestseller: boolean }) => {
-        startTransition(async () => {
-            const currentFont = fonts.find(f => f.id === fontId);
-            if (!currentFont) return;
-            setFonts(prev => prev.map(f => f.id === fontId ? { ...f, ...updates } : f));
-            
-            const result = await updateFontStatusAction(fontId, updates);
-            if (result.error) {
-                toast.error(result.error);
-                setFonts(prev => prev.map(f => f.id === fontId ? currentFont : f));
-            } else {
-                toast.success(result.success!);
-            }
-        });
-    };
-    
-    const handleDeleteDiscount = (id: string) => {
-      startTransition(async () => {
-        const result = await deleteDiscountAction(id);
-        if (result.error) { toast.error(result.error); } 
-        else {
-          toast.success(result.success!);
-          fetchData(); 
-        }
-      });
-    };
-
+    // Fungsi seleksi tidak berubah
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) setSelectedFonts(paginatedFonts.map(f => f.id));
         else setSelectedFonts([]);
     };
-
     const handleSelectOne = (id: string, isChecked: boolean) => {
         if (isChecked) setSelectedFonts(prev => [...prev, id]);
         else setSelectedFonts(prev => prev.filter(fontId => fontId !== id));
     };
-    
     const isAllOnPageSelected = paginatedFonts.length > 0 && paginatedFonts.every(f => selectedFonts.includes(f.id));
-    
     const formatDate = (dateString: string | null) => {
         if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -497,14 +534,12 @@ export default function ManageFontsPage() {
 
     return (
         <div>
-            {/* Modal Components */}
+            {/* ... (Semua komponen Modal tetap sama) ... */}
             <DiscountFormModal isOpen={isDiscountFormOpen} onClose={() => setIsDiscountFormOpen(false)} onSave={handleSaveDiscount} isLoading={isPending} initialData={editingDiscount} />
             <ApplyDiscountModal isOpen={isApplyDiscountModalOpen} onClose={() => setIsApplyDiscountModalOpen(false)} onApply={handleApplyDiscount} discounts={activeDiscounts} isLoading={isPending} selectedFontCount={selectedFonts.length} />
             <ManageDiscountsModal isOpen={isManageDiscountsModalOpen} onClose={() => setIsManageDiscountsModalOpen(false)} discounts={allDiscounts} onOpenConfirm={openDiscountDeleteModal} onOpenEdit={handleOpenEditDiscount} isLoading={isPending} />
             <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} itemsToDelete={fontsToDelete} itemType="font" isLoading={isPending} />
             <DeleteConfirmationModal isOpen={isDiscountDeleteModalOpen} onClose={() => setIsDiscountDeleteModalOpen(false)} onConfirm={confirmDiscountDelete} itemsToDelete={discountToDelete ? [discountToDelete] : []} itemType="discount" isLoading={isPending} />
-
-            {/* Main Content */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800">Manage Fonts</h1>
@@ -518,7 +553,7 @@ export default function ManageFontsPage() {
                 </div>
             </div>
 
-            <div className="mb-4 flex flex-col md:flex-row gap-4">
+             <div className="mb-4 flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
                     <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input type="text" placeholder="Search fonts by name..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2 border rounded-lg" />
@@ -545,7 +580,7 @@ export default function ManageFontsPage() {
                         <span className="text-sm font-medium text-gray-600">{selectedFonts.length} item(s) selected</span>
                         <div className="flex gap-2">
                             <button onClick={() => setIsApplyDiscountModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-100 rounded-md hover:bg-green-200"><Tag className="w-4 h-4" /> Apply Discount</button>
-                            <button onClick={() => { const fontsToActOn = fonts.filter(f => selectedFonts.includes(f.id)); openDeleteModal(fontsToActOn); }} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-100 rounded-md hover:bg-red-200"><Trash2 className="w-4 h-4" /> Delete Selected</button>
+                            <button onClick={() => { const fontsToActOn = paginatedFonts.filter(f => selectedFonts.includes(f.id)); openDeleteModal(fontsToActOn); }} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-100 rounded-md hover:bg-red-200"><Trash2 className="w-4 h-4" /> Delete Selected</button>
                         </div>
                     </div>
                 )}
@@ -563,7 +598,7 @@ export default function ManageFontsPage() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {isLoading ? (
+                        {isLoading || isPending ? (
                             <tr><td colSpan={8} className="text-center py-8">Loading fonts...</td></tr>
                         ) : paginatedFonts.length > 0 ? paginatedFonts.map((font) => {
                             const discountInfo = font.font_discounts[0]?.discounts;
@@ -588,7 +623,6 @@ export default function ManageFontsPage() {
                                     </td>
                                     <td className="px-6 py-4"><SwitchToggle label="" checked={!!font.is_bestseller} onChange={() => handleStatusUpdate(font.id, { is_bestseller: !font.is_bestseller })}/></td>
                                     <td className="px-6 py-4"><StatusBadge status={font.status} /></td>
-                                    {/* --- PERBAIKAN 3: Ubah cara mengakses hitungan sales --- */}
                                     <td className="px-6 py-4 text-sm text-gray-500">{font.order_items[0]?.count || 0}</td>
                                     <td className="px-6 py-4 text-sm text-gray-500">
                                         {discountedPrice !== null ? (
@@ -608,7 +642,7 @@ export default function ManageFontsPage() {
                                 </tr>
                             )
                         }) : (
-                            <tr><td colSpan={8} className="text-center py-8 text-gray-500">No fonts found.</td></tr>
+                            <tr><td colSpan={8} className="text-center py-8 text-gray-500">No fonts found matching your criteria.</td></tr>
                         )}
                     </tbody>
                 </table>

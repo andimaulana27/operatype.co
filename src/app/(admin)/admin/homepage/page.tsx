@@ -1,13 +1,15 @@
+// src/app/(admin)/admin/homepage/page.tsx
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Database } from '@/lib/database.types';
 import toast from 'react-hot-toast';
-// --- SEMUA IMPORT DND-KIT DIHAPUS ---
 import { SortableItem } from '@/components/admin/SortableItem';
-import { updateHomepageLayoutAction } from '@/app/actions/fontActions';
+// ==================== PERBAIKAN KINERJA ====================
+import { updateHomepageLayoutAction, getAvailableHomepageFontsAction } from '@/app/actions/fontActions';
 import { SearchIcon } from '@/components/icons';
+import AdminPagination from '@/components/admin/AdminPagination'; // Impor pagination
 
 type Font = Database['public']['Tables']['fonts']['Row'];
 
@@ -18,13 +20,18 @@ type ColumnData = {
 };
 
 const MAX_FONTS_PER_SECTION = 8;
+const ITEMS_PER_PAGE = 20; // Jumlah item per halaman untuk daftar "Available"
 
 export default function ManageHomepagePage() {
-  const [columns, setColumns] = useState<Record<string, ColumnData>>({
-    available: { id: 'available', title: 'Available Fonts', fonts: [] },
-    featured: { id: 'featured', title: 'Our Featured Collection', fonts: [] },
-    curated: { id: 'curated', title: 'Curated Selections', fonts: [] },
-  });
+  // State untuk kolom Featured & Curated tetap sama
+  const [featuredFonts, setFeaturedFonts] = useState<Font[]>([]);
+  const [curatedFonts, setCuratedFonts] = useState<Font[]>([]);
+
+  // State baru untuk daftar "Available Fonts" yang dipaginasi
+  const [availableFonts, setAvailableFonts] = useState<Font[]>([]);
+  const [totalAvailable, setTotalAvailable] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
@@ -32,86 +39,90 @@ export default function ManageHomepagePage() {
   const [showOnlyBestsellers, setShowOnlyBestsellers] = useState(false);
   const [selectedFonts, setSelectedFonts] = useState<string[]>([]);
 
-  // --- SENSOR DND-KIT DIHAPUS ---
-
+  // 1. Fetch data awal untuk kolom Featured dan Curated (datanya sedikit)
   useEffect(() => {
-    const fetchFonts = async () => {
+    const fetchHomepageFonts = async () => {
       setIsLoading(true);
-      // Query tidak perlu lagi mengambil homepage_order
-      const { data, error } = await supabase.from('fonts').select('*').eq('status', 'Published').order('name', { ascending: true });
-      if (error) { toast.error('Failed to fetch fonts.'); } 
-      else {
-        setColumns({
-          available: { id: 'available', title: 'Available Fonts', fonts: data.filter(f => f.homepage_section === 'none' || !f.homepage_section) },
-          featured: { id: 'featured', title: 'Our Featured Collection', fonts: data.filter(f => f.homepage_section === 'featured') },
-          curated: { id: 'curated', title: 'Curated Selections', fonts: data.filter(f => f.homepage_section === 'curated') },
-        });
+      const { data, error } = await supabase
+        .from('fonts')
+        .select('*')
+        .in('homepage_section', ['featured', 'curated'])
+        .eq('status', 'Published')
+        .order('homepage_order', { ascending: true });
+
+      if (error) {
+        toast.error('Failed to fetch homepage fonts.');
+      } else {
+        setFeaturedFonts(data.filter(f => f.homepage_section === 'featured'));
+        setCuratedFonts(data.filter(f => f.homepage_section === 'curated'));
       }
-      setIsLoading(false);
+      // setIsLoading(false) akan dipanggil setelah available fonts juga ter-load
     };
-    fetchFonts();
+    fetchHomepageFonts();
   }, []);
 
-  // --- FUNGSI handleDragEnd DIHAPUS ---
+  // 2. Fetch data untuk "Available Fonts" secara terpisah dan dengan paginasi
+  useEffect(() => {
+    const fetchAvailable = () => {
+        startTransition(async () => {
+            const result = await getAvailableHomepageFontsAction({
+                page: currentPage,
+                limit: ITEMS_PER_PAGE,
+                searchTerm,
+                showBestsellers: showOnlyBestsellers,
+            });
+            if(result.error) {
+                toast.error(result.error);
+            } else {
+                setAvailableFonts(result.data || []);
+                setTotalAvailable(result.count || 0);
+            }
+            if(isLoading) setIsLoading(false); // Matikan loading global setelah semua data awal siap
+        });
+    };
+    fetchAvailable();
+  }, [currentPage, searchTerm, showOnlyBestsellers]);
 
   const handleSelectFont = (fontId: string) => {
     setSelectedFonts(prev => 
       prev.includes(fontId) ? prev.filter(id => id !== fontId) : [...prev, fontId]
     );
   };
-
+  
+  // 3. Logika pemindahan font disesuaikan
   const handleMoveSelected = (targetSection: 'featured' | 'curated') => {
     if (selectedFonts.length === 0) return;
 
-    setColumns(prev => {
-      const targetColumn = prev[targetSection];
-      if (targetColumn.fonts.length + selectedFonts.length > MAX_FONTS_PER_SECTION) {
-        toast.error(`Can't add ${selectedFonts.length} fonts. Section limit is ${MAX_FONTS_PER_SECTION}.`);
-        return prev;
-      }
-      const available = [...prev.available.fonts];
-      const toMove: Font[] = [];
-      const remainingAvailable = available.filter(font => {
-          if (selectedFonts.includes(font.id)) {
-              toMove.push(font);
-              return false;
-          }
-          return true;
-      });
-      const newTarget = [...targetColumn.fonts, ...toMove];
-      setSelectedFonts([]);
-      return {
-        ...prev,
-        available: { ...prev.available, fonts: remainingAvailable },
-        [targetSection]: { ...targetColumn, fonts: newTarget },
-      };
-    });
+    const targetList = targetSection === 'featured' ? featuredFonts : curatedFonts;
+    const setTargetList = targetSection === 'featured' ? setFeaturedFonts : setCuratedFonts;
+
+    if (targetList.length + selectedFonts.length > MAX_FONTS_PER_SECTION) {
+      toast.error(`Section limit is ${MAX_FONTS_PER_SECTION}. Cannot add ${selectedFonts.length} fonts.`);
+      return;
+    }
+    
+    const fontsToMove = availableFonts.filter(f => selectedFonts.includes(f.id));
+    setTargetList(prev => [...prev, ...fontsToMove]);
+    setAvailableFonts(prev => prev.filter(f => !selectedFonts.includes(f.id)));
+    
+    setSelectedFonts([]);
   };
   
   const handleRemoveFont = (fontId: string, sourceSection: 'featured' | 'curated') => {
-    setColumns(prev => {
-      const sourceItems = [...prev[sourceSection].fonts];
-      const availableItems = [...prev.available.fonts];
-      
-      const index = sourceItems.findIndex(f => f.id === fontId);
-      if (index > -1) {
-        const [removedItem] = sourceItems.splice(index, 1);
-        availableItems.push(removedItem);
-        availableItems.sort((a, b) => a.name.localeCompare(b.name));
-        return {
-          ...prev,
-          [sourceSection]: { ...prev[sourceSection], fonts: sourceItems },
-          available: { ...prev.available, fonts: availableItems },
-        };
-      }
-      return prev;
-    });
+    const sourceList = sourceSection === 'featured' ? featuredFonts : curatedFonts;
+    const setSourceList = sourceSection === 'featured' ? setFeaturedFonts : setCuratedFonts;
+
+    const fontToRemove = sourceList.find(f => f.id === fontId);
+    if (fontToRemove) {
+      setSourceList(prev => prev.filter(f => f.id !== fontId));
+      setAvailableFonts(prev => [...prev, fontToRemove].sort((a,b) => a.name.localeCompare(b.name)));
+    }
   };
 
   const handleSaveLayout = () => {
     startTransition(async () => {
-      const featuredIds = columns.featured.fonts.map(f => f.id);
-      const curatedIds = columns.curated.fonts.map(f => f.id);
+      const featuredIds = featuredFonts.map(f => f.id);
+      const curatedIds = curatedFonts.map(f => f.id);
       
       const result = await updateHomepageLayoutAction(featuredIds, curatedIds);
       if (result.error) { toast.error(result.error); } 
@@ -119,21 +130,9 @@ export default function ManageHomepagePage() {
     });
   };
 
-  const filteredAvailableFonts = useMemo(() => {
-    let available = columns.available.fonts;
-    if (showOnlyBestsellers) {
-      available = available.filter(font => font.is_bestseller);
-    }
-    if (searchTerm) {
-      available = available.filter(font => 
-        font.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    return available;
-  }, [columns.available.fonts, searchTerm, showOnlyBestsellers]);
+  const totalPages = Math.ceil(totalAvailable / ITEMS_PER_PAGE);
 
-
-  if (isLoading) return <div className="text-center p-12">Loading Font Data...</div>;
+  if (isLoading) return <div className="text-center p-12">Loading Homepage Layout...</div>;
 
   return (
     <div>
@@ -149,7 +148,7 @@ export default function ManageHomepagePage() {
       </div>
 
       {selectedFonts.length > 0 && (
-        <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between transition-all duration-300">
+        <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between">
           <span className="font-medium text-indigo-800">{selectedFonts.length} font(s) selected</span>
           <div className="flex items-center gap-2">
             <button onClick={() => handleMoveSelected('featured')} className="px-3 py-1.5 text-sm font-medium text-white bg-brand-orange rounded-md hover:bg-brand-orange-hover">Move to Featured</button>
@@ -166,7 +165,7 @@ export default function ManageHomepagePage() {
             type="text"
             placeholder="Search available fonts..."
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             className="w-full pl-10 pr-4 py-2 border rounded-lg"
           />
         </div>
@@ -175,7 +174,7 @@ export default function ManageHomepagePage() {
             id="bestseller-filter"
             type="checkbox"
             checked={showOnlyBestsellers}
-            onChange={e => setShowOnlyBestsellers(e.target.checked)}
+            onChange={e => { setShowOnlyBestsellers(e.target.checked); setCurrentPage(1); }}
             className="h-4 w-4 rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
           />
           <label htmlFor="bestseller-filter" className="ml-2 block text-sm font-medium text-gray-700">
@@ -184,38 +183,32 @@ export default function ManageHomepagePage() {
         </div>
       </div>
 
-      {/* --- WRAPPER DND-CONTEXT DIHAPUS --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div key="available" className="bg-gray-50 p-4 rounded-lg flex flex-col">
-          <h2 className="font-bold text-lg mb-4 text-gray-700">{columns.available.title} ({filteredAvailableFonts.length})</h2>
+          <h2 className="font-bold text-lg mb-4 text-gray-700">Available Fonts ({totalAvailable})</h2>
           <div className="space-y-3 min-h-[300px] border-2 border-dashed border-gray-300 rounded-md p-2 flex-grow overflow-y-auto">
-            {filteredAvailableFonts.map(font => (
+            {isPending && currentPage === 1 ? <p>Loading...</p> : availableFonts.map(font => (
               <SortableItem
-                key={font.id}
-                id={font.id}
-                font={font}
-                showCheckbox={true}
-                isSelected={selectedFonts.includes(font.id)}
-                onSelect={handleSelectFont}
+                key={font.id} id={font.id} font={font} showCheckbox={true}
+                isSelected={selectedFonts.includes(font.id)} onSelect={handleSelectFont}
               />
             ))}
           </div>
+          {totalPages > 1 && (
+            <AdminPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+          )}
         </div>
 
-        {['featured', 'curated'].map(colId => (
-          <div key={colId} className="bg-gray-50 p-4 rounded-lg flex flex-col">
-            <h2 className="font-bold text-lg mb-4 text-gray-700">{columns[colId].title} ({columns[colId].fonts.length} / {MAX_FONTS_PER_SECTION})</h2>
+        {[{id: 'featured', title: 'Our Featured Collection', fonts: featuredFonts}, {id: 'curated', title: 'Curated Selections', fonts: curatedFonts}].map(col => (
+          <div key={col.id} className="bg-gray-50 p-4 rounded-lg flex flex-col">
+            <h2 className="font-bold text-lg mb-4 text-gray-700">{col.title} ({col.fonts.length} / {MAX_FONTS_PER_SECTION})</h2>
             <div className="space-y-3 min-h-[300px] border-2 border-dashed border-gray-300 rounded-md p-2 flex-grow overflow-y-auto">
-              {/* --- WRAPPER SORTABLE-CONTEXT DIHAPUS --- */}
-              {/* Tambahkan .sort() untuk memastikan urutan konsisten berdasarkan abjad */}
-              {columns[colId].fonts
+              {col.fonts
                 .sort((a,b) => a.name.localeCompare(b.name))
                 .map(font => (
                 <SortableItem
-                  key={font.id}
-                  id={font.id}
-                  font={font}
-                  onRemove={(id) => handleRemoveFont(id, colId as 'featured' | 'curated')}
+                  key={font.id} id={font.id} font={font}
+                  onRemove={(id) => handleRemoveFont(id, col.id as 'featured' | 'curated')}
                 />
               ))}
             </div>

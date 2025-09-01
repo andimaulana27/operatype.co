@@ -18,7 +18,11 @@ export default function FilterDropdown({ options, paramName }: FilterDropdownPro
   const pathname = usePathname();
   const router = useRouter();
 
-  const currentValue = searchParams.get(paramName) || (paramName === 'category' ? 'All' : 'Popular'); // Default ke Popular
+  // ==================== PERBAIKAN DEFAULT TAMPILAN DROPDOWN ====================
+  // Ubah default value dari 'Popular' menjadi 'Newest' agar sesuai dengan logika halaman.
+  // Sekarang, jika tidak ada parameter 'sort' di URL, yang akan ditampilkan adalah 'Newest'.
+  const currentValue = searchParams.get(paramName) || (paramName === 'category' ? 'All' : 'Newest');
+  // ===========================================================================
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -56,9 +60,7 @@ export default function FilterDropdown({ options, paramName }: FilterDropdownPro
       </button>
 
       {isOpen && (
-        // ==================== PERBAIKAN DI SINI: TAMBAHKAN z-50 ====================
         <div className="absolute top-full mt-2 w-full md:w-56 bg-white border border-brand-gray-2 rounded-lg shadow-lg z-50">
-        {/* ========================================================================= */}
           <ul className="py-1">
             {options.map(option => (
               <li

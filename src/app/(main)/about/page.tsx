@@ -1,28 +1,25 @@
 // src/app/(main)/about/page.tsx
+
+// Menambahkan revalidate untuk memastikan halaman ini di-cache secara statis
+export const revalidate = 86400; // 1 hari
+
 import Image from 'next/image';
 import Link from 'next/link';
 
-// Halaman ini adalah Server Component, tidak perlu 'use client'
 export default function AboutPage() {
   return (
     <div className="bg-brand-white">
       <div className="container mx-auto px-4 py-16">
-        
-        {/* --- Seksi Pertama: Hero --- */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Kolom Kiri: Gambar */}
           <div className="w-full h-96 relative rounded-lg overflow-hidden">
             <Image 
               src="/images/pages/about-image-1.png"
               alt="Operatype workspace"
               layout="fill"
               objectFit="cover"
-              // PERBAIKAN: Menambahkan 'priority' agar gambar dimuat lebih cepat
               priority 
             />
           </div>
-          
-          {/* Kolom Kanan: Teks */}
           <div className="text-left">
             <h1 className="text-5xl font-medium text-brand-black leading-tight">
               The Story Behind Every Stroke
@@ -31,7 +28,6 @@ export default function AboutPage() {
             <p className="font-light text-brand-gray-1">
               We are Operatype, a collective of designers dedicated to crafting high-quality fonts.
             </p>
-            
             <div className="mt-6">
               <h3 className="font-medium text-brand-orange mb-4">Our Value</h3>
               <div className="flex flex-col md:flex-row items-center gap-x-6 gap-y-2 font-medium text-brand-black">
@@ -45,13 +41,10 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* --- Seksi Kedua: Our Story --- */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mt-24">
-          {/* Kolom Kiri: Teks */}
           <div className="text-left">
             <h2 className="text-4xl font-medium text-brand-black">Our Story</h2>
             <div className="w-20 h-0.5 bg-brand-orange mt-4 mb-6"></div>
-            
             <div className="space-y-4 font-light text-brand-black">
               <p>
                 We've all been there: you find a high quality font, you purchase it for a project, and then the frustration begins. Awkward letter connections, a limited character set, no multilingual support. A Stylish Typography tool becomes a technical headache. We knew there had to be a better way.
@@ -66,20 +59,16 @@ export default function AboutPage() {
               </span>
             </Link>
           </div>
-          
-          {/* Kolom Kanan: Gambar */}
           <div className="w-full h-96 relative rounded-lg overflow-hidden">
             <Image 
               src="/images/pages/about-image-2.png"
               alt="Crafting a font"
               layout="fill"
               objectFit="cover"
-              // PERBAIKAN: Menambahkan 'priority' agar gambar dimuat lebih cepat
               priority
             />
           </div>
         </section>
-        
       </div>
     </div>
   );

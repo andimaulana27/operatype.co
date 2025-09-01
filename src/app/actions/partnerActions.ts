@@ -4,61 +4,129 @@
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { Database } from '@/lib/database.types';
+import { createClient } from '@supabase/supabase-js';
 
-// Server Action untuk menambah partner baru
+type Partner = Database['public']['Tables']['partners']['Row'];
+
+// --- FUNGSI BARU: Mengambil daftar partner dengan paginasi dan pencarian ---
+export async function getPartnersAction(options: { page: number, limit: number, searchTerm?: string }) {
+  const { page, limit, searchTerm } = options;
+  const supabase = createServerActionClient({ cookies });
+
+  try {
+    let query = supabase
+      .from('partners')
+      .select('*', { count: 'exact' });
+
+    if (searchTerm) {
+      query = query.ilike('name', `%${searchTerm}%`);
+    }
+
+    const start = (page - 1) * limit;
+    const end = start + limit - 1;
+
+    const { data, error, count } = await query
+      .order('name', { ascending: true })
+      .range(start, end);
+
+    if (error) throw error;
+    
+    return { data, count, error: null };
+  } catch (error: any) {
+    return { data: [], count: 0, error: error.message };
+  }
+}
+
+// --- FUNGSI LAMA: Diperbarui untuk lebih robust ---
 export async function addPartnerAction(formData: FormData) {
   const name = String(formData.get('name'));
   const subheadline = String(formData.get('subheadline'));
   const logoFile = formData.get('logo') as File | null;
-
   const supabase = createServerActionClient({ cookies });
 
-  // Validasi sederhana di server
-  if (!name) {
-    return { error: 'Partner Name is required.' };
-  }
+  if (!name) return { error: 'Partner Name is required.' };
 
   try {
-    let logo_url = '';
-
-    // 1. Handle upload file logo jika ada
+    let logo_url: string | null = null;
     if (logoFile && logoFile.size > 0) {
-      const filePath = `${Date.now()}_${logoFile.name}`;
-      const { data, error: uploadError } = await supabase.storage
-        .from('partner_logos')
-        .upload(filePath, logoFile);
-
+      const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const filePath = `public/${Date.now()}_${logoFile.name}`;
+      const { error: uploadError } = await supabaseAdmin.storage.from('partner_logos').upload(filePath, logoFile);
       if (uploadError) throw uploadError;
-
-      // Dapatkan URL publik dari file yang diunggah
-      const { data: urlData } = supabase.storage
-        .from('partner_logos')
-        .getPublicUrl(data.path);
-      
+      const { data: urlData } = supabaseAdmin.storage.from('partner_logos').getPublicUrl(filePath);
       logo_url = urlData.publicUrl;
     }
 
-    // 2. Buat slug dari nama partner
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-    // 3. Simpan data ke tabel 'partners'
-    const { error: insertError } = await supabase.from('partners').insert({
-      name,
-      subheadline,
-      slug,
-      logo_url: logo_url || null,
-    });
-
+    const { error: insertError } = await supabase.from('partners').insert({ name, subheadline, slug, logo_url });
     if (insertError) throw insertError;
 
-    // 4. Revalidate cache untuk halaman terkait agar data baru muncul
     revalidatePath('/admin/partners');
     revalidatePath('/partners');
-    
     return { success: true };
-
   } catch (error: any) {
-    console.error('Add partner error:', error);
     return { error: error.message };
   }
+}
+
+// --- FUNGSI BARU: Untuk halaman edit ---
+export async function getPartnerByIdAction(id: string) {
+    const supabase = createServerActionClient<Database>({ cookies });
+    try {
+        const { data, error } = await supabase.from('partners').select('*').eq('id', id).single();
+        if (error) throw error;
+        return { data, error: null };
+    } catch(error: any) {
+        return { data: null, error: error.message };
+    }
+}
+
+// --- FUNGSI BARU: Untuk update partner ---
+export async function updatePartnerAction(id: string, formData: FormData) {
+    const name = String(formData.get('name'));
+    const subheadline = String(formData.get('subheadline'));
+    const logoFile = formData.get('logo') as File | null;
+    const existingLogoUrl = String(formData.get('existing_logo_url'));
+
+    const supabase = createServerActionClient({ cookies });
+    if (!name) return { error: 'Partner Name is required.' };
+
+    try {
+        let logo_url: string | null = existingLogoUrl;
+        if (logoFile && logoFile.size > 0) {
+            const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+            const filePath = `public/${Date.now()}_${logoFile.name}`;
+            const { error: uploadError } = await supabaseAdmin.storage.from('partner_logos').upload(filePath, logoFile);
+            if (uploadError) throw uploadError;
+            const { data: urlData } = supabaseAdmin.storage.from('partner_logos').getPublicUrl(filePath);
+            logo_url = urlData.publicUrl;
+        }
+
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        const { error } = await supabase.from('partners').update({ name, subheadline, slug, logo_url }).eq('id', id);
+        if (error) throw error;
+
+        revalidatePath('/admin/partners');
+        revalidatePath(`/partners/${slug}`);
+        return { success: true };
+    } catch (error: any) {
+        return { error: error.message };
+    }
+}
+
+
+// --- FUNGSI BARU: Untuk hapus partner ---
+export async function deletePartnerAction(id: string) {
+    const supabase = createServerActionClient({ cookies });
+    try {
+        const { error } = await supabase.from('partners').delete().eq('id', id);
+        if (error) throw error;
+        revalidatePath('/admin/partners');
+        revalidatePath('/partners');
+        return { success: true };
+    } catch (error: any) {
+        return { error: error.message };
+    }
 }

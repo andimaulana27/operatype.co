@@ -1,5 +1,6 @@
 // src/app/(main)/privacy-policy/page.tsx
 import React from 'react';
+export const revalidate = 86400; // 1 hari
 
 const PolicySection = ({ title, children }: { title: string, children: React.ReactNode }) => (
   <section>
