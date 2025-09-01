@@ -14,7 +14,13 @@ const PayPalWrapper = () => {
   const [isPending, startTransition] = useTransition();
   const payPalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
 
+  // ==================== TAMBAHKAN KODE DEBUG DI SINI ====================
+  console.log("PayPal Client ID yang digunakan:", payPalClientId);
+  // ======================================================================
+
   if (!payPalClientId) {
+    // Pesan ini akan muncul jika variabel tidak ditemukan sama sekali
+    console.error("Variabel NEXT_PUBLIC_PAYPAL_CLIENT_ID tidak ditemukan!");
     return <div className="text-center text-red-500">PayPal Client ID not found.</div>;
   }
 
@@ -24,22 +30,20 @@ const PayPalWrapper = () => {
     intent: "capture",
   };
 
-  // --- PERBAIKAN: Tangkap detail pembayaran dari PayPal ---
   const handleApprove = async (data: any, actions: any) => {
+    // ... (sisa kode tidak berubah)
     try {
       const details = await actions.order.capture();
       
       startTransition(async () => {
         toast.loading('Processing your order...');
         
-        // Siapkan detail transaksi untuk dikirim ke Server Action
         const transactionDetails = {
           orderId: details.id,
           payerEmail: details.payer.email_address,
           payerName: `${details.payer.name.given_name} ${details.payer.name.surname}`,
         };
         
-        // Kirim detail transaksi bersama item keranjang
         const result = await createOrderAction(cartItems, transactionDetails);
         
         toast.dismiss();

@@ -27,12 +27,10 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: 
               "default-src 'self' *.paypal.com *.supabase.co;" +
-              // Kita tetap membutuhkan 'unsafe-eval' & 'unsafe-inline' untuk PayPal,
-              // namun kita bisa lebih spesifik di arahan lain.
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.paypal.com;" + 
-              "img-src 'self' data: https:;" +
+              "img-src 'self' data: https: blob:;" +
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;" +
-              "font-src 'self' https://fonts.gstatic.com https://qdatempkonebloyfiukj.supabase.co;" +
+              "font-src 'self' https://fonts.gstatic.com https://qdatempkonebloyfiukj.supabase.co data:;" +
               "frame-src 'self' *.paypal.com;" +
               "object-src 'none';",
           },
