@@ -11,7 +11,6 @@ import SearchInput from '@/components/SearchInput';
 
 const ITEMS_PER_PAGE = 24;
 
-// Buat tipe data baru yang merupakan gabungan dari tipe lama DITAMBAH properti 'total_count'.
 type FontFromRPC = FontWithDetailsForCard & {
   total_count: number;
 };
@@ -33,17 +32,13 @@ export default async function AllFontsPage({
   const searchTerm = typeof searchParams.search === 'string' ? searchParams.search : '';
   const selectedCategory = typeof searchParams.category === 'string' ? searchParams.category : 'All';
   
-  // Default value diubah menjadi 'Newest'.
   const sortBy = typeof searchParams.sort === 'string' ? searchParams.sort : 'Newest';
 
   const currentPage = typeof searchParams.page === 'string' ? Number(searchParams.page) : 1;
 
   const categoryOptions = ['All', ...(await getCategories())];
   
-  // ==================== PERUBAHAN URUTAN DROPDOWN ====================
-  // Pindahkan 'Newest' menjadi item pertama dalam array `sortOptions`.
   const sortOptions = ["Newest", "Popular", "Oldest", "Price: Low to High", "Price: High to Low", "A to Z", "Z to A"];
-  // ===================================================================
 
   const { data, error } = await supabase.rpc('get_filtered_fonts', {
     search_term: searchTerm,
@@ -64,7 +59,6 @@ export default async function AllFontsPage({
   
   return (
     <div className="bg-brand-white">
-      {/* Bagian JSX (tampilan) tidak ada yang berubah */}
       <section className="container mx-auto px-4 pt-16 pb-8 text-center">
         <h1 className="text-5xl font-medium text-brand-black">Our Font Collection</h1>
         <div className="w-20 h-[3px] bg-brand-orange mx-auto my-6"></div>
@@ -93,8 +87,14 @@ export default async function AllFontsPage({
         {paginatedFonts.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {paginatedFonts.map((font) => (
-                <ProductCard key={font.id} font={font} />
+              {/* PERUBAHAN DI SINI: Menambahkan prop `priority` pada ProductCard */}
+              {paginatedFonts.map((font, index) => (
+                <ProductCard 
+                  key={font.id} 
+                  font={font} 
+                  // Prioritaskan 4 gambar pertama di halaman pertama
+                  priority={currentPage === 1 && index < 4} 
+                />
               ))}
             </div>
             {totalPages > 1 && (

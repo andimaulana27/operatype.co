@@ -7,7 +7,6 @@ import { Database } from '@/lib/database.types';
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
-// Tipe untuk data gabungan
 export type UserWithProfile = {
   id: string;
   email?: string;
@@ -16,8 +15,6 @@ export type UserWithProfile = {
   role: string | null;
 };
 
-// Tipe untuk detail pengguna tunggal
-// PERBAIKAN: Menggunakan 'order_items' bukan 'orders'
 type OrderItem = Database['public']['Tables']['order_items']['Row'];
 type Font = Database['public']['Tables']['fonts']['Row'];
 type OrderWithFont = OrderItem & {
@@ -30,11 +27,10 @@ export type UserDetail = {
   role: string | null;
   created_at: string | undefined;
   email: string | undefined;
-  orders: OrderWithFont[]; // Nama properti tetap 'orders' untuk konsistensi
+  orders: OrderWithFont[];
 };
 
 
-// Inisialisasi Supabase Admin Client
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -59,27 +55,22 @@ export async function updateUserPassword(userId: string, newPassword: string) {
   return { success: 'Password updated successfully!' };
 }
 
-// Fungsi BARU untuk mengambil semua pengguna dengan detailnya
 export async function getUsersWithDetails(page: number, limit: number, searchTerm: string = '') {
-  // Gunakan service key untuk akses penuh
   const supabaseAdmin = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   try {
-    // Query sekarang langsung ke tabel profiles
     let query = supabaseAdmin
       .from('profiles')
       .select('*', { count: 'exact' });
 
-    // Lakukan pencarian di database jika ada search term
     if (searchTerm) {
       const searchPattern = `%${searchTerm}%`;
       query = query.or(`full_name.ilike.${searchPattern},email.ilike.${searchPattern}`);
     }
 
-    // Terapkan paginasi di database
     const start = (page - 1) * limit;
     const end = start + limit - 1;
     
@@ -89,7 +80,6 @@ export async function getUsersWithDetails(page: number, limit: number, searchTer
 
     if (error) throw error;
 
-    // Gabungkan dengan data dari Auth untuk memastikan data selalu sinkron
     const { data: { users: authUsers }, error: authError } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 10000 });
     if(authError) throw authError;
 
@@ -104,14 +94,13 @@ export async function getUsersWithDetails(page: number, limit: number, searchTer
 
     return { data: combinedData, count, error: null };
 
-  } catch (error: any) {
-    console.error("Admin users fetch error:", error.message);
-    return { data: [], count: 0, error: error.message };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    console.error("Admin users fetch error:", message);
+    return { data: [], count: 0, error: message };
   }
 }
 
-
-// Fungsi BARU untuk mengambil detail pengguna tunggal
 export async function getUserDetails(userId: string): Promise<{ data: UserDetail | null, error: string | null }> {
     try {
         const { data: { user }, error: authError } = await supabaseAdmin.auth.admin.getUserById(userId);
@@ -125,7 +114,6 @@ export async function getUserDetails(userId: string): Promise<{ data: UserDetail
 
         if (profileError && profileError.code !== 'PGRST116') throw profileError;
         
-        // PERBAIKAN: Menggunakan 'order_items' bukan 'orders'
         const { data: orders, error: ordersError } = await supabaseAdmin
             .from('order_items')
             .select(`*, fonts ( name, main_image_url, slug )`)
@@ -145,13 +133,13 @@ export async function getUserDetails(userId: string): Promise<{ data: UserDetail
         
         return { data: userDetails, error: null };
 
-    } catch (error: any) {
-        console.error("Error fetching user details:", error.message);
-        return { data: null, error: error.message };
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+        console.error("Error fetching user details:", message);
+        return { data: null, error: message };
     }
 }
 
-// --- FUNGSI BARU UNTUK EDIT PROFIL ---
 export async function updateProfileAction(formData: FormData) {
     const supabase = createServerActionClient({ cookies });
     const { data: { user } } = await supabase.auth.getUser();
@@ -171,7 +159,6 @@ export async function updateProfileAction(formData: FormData) {
     return { success: 'Profile updated successfully!' };
 }
 
-// --- FUNGSI BARU UNTUK UBAH KATA SANDI ---
 export async function changePasswordAction(formData: FormData) {
     const newPassword = String(formData.get('newPassword'));
     const confirmPassword = String(formData.get('confirmPassword'));

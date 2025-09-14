@@ -1,20 +1,16 @@
 // src/app/(main)/partners/[slug]/page.tsx
 
-// Aktifkan caching (ISR) untuk memuat halaman secara instan
 export const revalidate = 3600;
 
 import { supabase } from '@/lib/supabaseClient';
 import { notFound } from 'next/navigation';
-import { Database } from '@/lib/database.types';
+// import { Database } from '@/lib/database.types'; // Dihapus
 import SectionTitle from '@/components/SectionTitle';
 import SearchInput from '@/components/SearchInput';
 import FilterDropdown from '@/components/FilterDropdown';
 import ProductCard, { FontWithDetailsForCard } from '@/components/ProductCard';
 import Pagination from '@/components/Pagination';
 
-type Partner = Database['public']['Tables']['partners']['Row'];
-
-// Tipe data baru untuk hasil dari RPC, sama seperti di halaman All Fonts
 type FontFromRPC = FontWithDetailsForCard & {
   total_count: number;
 };
@@ -28,7 +24,6 @@ export default async function PartnerDetailPage({
   params: { slug: string };
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  // Ambil data partner (ini hanya berjalan sekali per jam)
   const { data: partner, error: partnerError } = await supabase
     .from('partners')
     .select('*')
@@ -45,7 +40,6 @@ export default async function PartnerDetailPage({
   
   const sortOptions = ["Newest", "Popular", "Oldest", "Price: Low to High", "Price: High to Low", "A to Z", "Z to A"];
 
-  // Panggil fungsi RPC yang baru dibuat
   const { data, error: fontsError } = await supabase.rpc('get_partner_fonts', {
     p_partner_id: partner.id,
     search_term: searchTerm,
@@ -65,6 +59,7 @@ export default async function PartnerDetailPage({
   return (
     <div className="bg-brand-white">
       <div className="container mx-auto px-4 pt-16 pb-8">
+        
         <SectionTitle 
           title={partner.name}
           subtitle={partner.subheadline}

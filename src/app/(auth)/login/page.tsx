@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { registerAction, verifyOtpAction } from '@/app/actions/authActions';
 import PasswordField from './PasswordField';
 import { useState, useTransition, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation'; // Import useSearchParams
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -15,7 +15,8 @@ export default function LoginPage() {
   const [userEmail, setUserEmail] = useState('');
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  
+  const searchParams = useSearchParams(); // Hook untuk membaca query parameter
+
   const handleLoginSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -41,7 +42,13 @@ export default function LoginPage() {
           .single();
         
         toast.success('Login successful! Welcome.');
-        const redirectTo = profile?.role === 'admin' ? '/admin/dashboard' : '/account';
+        
+        // ==================== PERBAIKAN REDIRECT DI SINI ====================
+        const nextUrl = searchParams.get('next'); // Baca parameter 'next' dari URL
+        // Jika ada 'next', redirect ke sana. Jika tidak, gunakan logika default.
+        const redirectTo = nextUrl || (profile?.role === 'admin' ? '/admin/dashboard' : '/account');
+        // ===================================================================
+
         router.push(redirectTo);
         router.refresh();
       }
@@ -63,7 +70,6 @@ export default function LoginPage() {
     });
   };
 
-  // --- PERBAIKAN UTAMA DI SINI ---
   const handleOtpSubmit = (formData: FormData) => {
     formData.append('email', userEmail);
     startTransition(async () => {
@@ -71,14 +77,18 @@ export default function LoginPage() {
       if (result?.error) {
         toast.error(result.error);
       } else if (result.session) {
-        // Secara manual atur sesi di client setelah OTP valid
         await supabase.auth.setSession({
           access_token: result.session.access_token,
           refresh_token: result.session.refresh_token,
         });
         toast.success('Verification successful! Welcome.');
-        router.push('/account'); // Redirect ke halaman akun
-        router.refresh(); // Refresh layout untuk memperbarui navbar
+
+        // Juga terapkan logika redirect di sini setelah verifikasi OTP
+        const nextUrl = searchParams.get('next');
+        const redirectTo = nextUrl || '/account';
+        
+        router.push(redirectTo);
+        router.refresh();
       }
     });
   };
@@ -89,7 +99,7 @@ export default function LoginPage() {
          <div className="text-center">
             <h2 className="text-3xl font-medium text-brand-black">Verify Your Email</h2>
             <div className="w-16 h-0.5 bg-brand-orange mt-3 mb-8 mx-auto"></div>
-            <p className="text-brand-gray-1">We've sent a 6-digit code to <strong>{userEmail}</strong>. Please enter it below.</p>
+            <p className="text-brand-gray-1">We&apos;ve sent a 6-digit code to <strong>{userEmail}</strong>. Please enter it below.</p>
          </div>
          <form action={handleOtpSubmit} className="space-y-6 mt-6">
             <input 
@@ -164,7 +174,7 @@ export default function LoginPage() {
               <button 
                 onClick={() => setIsRegisterView(false)}
                 className="mt-8 inline-block bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">
-                  Register Now
+                  Login Now
               </button>
             </div>
             <div className={`absolute transition-opacity duration-500 ${isRegisterView ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
@@ -173,7 +183,7 @@ export default function LoginPage() {
               <button 
                 onClick={() => setIsRegisterView(true)}
                 className="mt-8 inline-block bg-transparent border border-white text-white font-medium py-3 px-12 rounded-full hover:bg-white hover:text-brand-orange transition-colors">
-                  Login Now
+                  Register
               </button>
             </div>
           </div>

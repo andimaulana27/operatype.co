@@ -1,13 +1,11 @@
 // src/app/(main)/license/page.tsx
 
-// Menambahkan revalidate untuk memastikan halaman ini di-cache secara statis
 export const revalidate = 86400; // 1 hari
 
 import React from 'react';
 import Link from 'next/link';
 import { CheckCircle, XCircle, Star, Check, X } from 'lucide-react';
 
-// ... (sisa kode komponen tidak perlu diubah, karena sudah optimal)
 const comparisonFeatures = [
   {
     category: 'Core Usage',
@@ -60,7 +58,7 @@ const LicenseComparisonTable = () => (
             <tr className="bg-gray-100">
               <td colSpan={5} className="px-6 py-3 text-sm font-bold text-brand-black">{group.category}</td>
             </tr>
-            {group.features.map((feature, index) => (
+            {group.features.map((feature) => ( // 'index' dihapus dari sini
               <tr key={feature.name} className="border-b border-gray-200 last:border-b-0 hover:bg-orange-50/20">
                 <td className="pl-10 pr-6 py-4 font-medium text-gray-800">{feature.name}</td>
                 <td className="px-6 py-4 text-center"><FeatureCell value={feature.desktop} /></td>
@@ -262,7 +260,7 @@ export default function LicensePage() {
         <div className="mt-12 bg-gray-900 rounded-2xl p-10 flex flex-col justify-center items-center text-center">
            <h3 className="text-3xl font-semibold text-white">Need a Custom Solution?</h3>
            <p className="font-light text-gray-300 mt-4 max-w-3xl">
-             On a Limited Budget or Need a Custom License? Our team can create a tailored package that fits your project's unique scope and budget. We're here to help.
+             On a Limited Budget or Need a Custom License? Our team can create a tailored package that fits your project&apos;s unique scope and budget. We&apos;re here to help.
            </p>
            <div className="mt-8">
               <Link href="/contact">

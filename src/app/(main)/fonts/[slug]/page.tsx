@@ -1,19 +1,11 @@
 // src/app/(main)/fonts/[slug]/page.tsx
-
-// ==================== PERBAIKAN KINERJA ====================
-// 1. Ubah revalidate menjadi 3600 (1 jam) atau lebih tinggi.
-// Halaman ini sekarang akan dibuat secara statis saat pertama kali diakses
-// dan dimuat secara instan untuk semua pengunjung berikutnya.
-// Pembaruan data akan terjadi di latar belakang setelah 1 jam.
 export const revalidate = 3600;
 
+import dynamic from 'next/dynamic'; // 1. Impor `dynamic` dari Next.js
 import { supabase } from "@/lib/supabaseClient";
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import Link from 'next/link';
 import FontImageGallery from '@/components/FontImageGallery';
-import TypeTester from '@/components/TypeTester';
-import GlyphViewer from '@/components/GlyphViewer';
 import ProductCard from '@/components/ProductCard';
 import LicenseSelector from '@/components/LicenseSelector';
 import SectionHeader from '@/components/SectionHeader';
@@ -22,8 +14,11 @@ import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
 import { FontWithDetailsForCard } from "@/components/ProductCard";
 
-// Tipe data dan fungsi pengambilan data tidak perlu diubah.
-// Dengan caching, fungsi-fungsi ini hanya akan berjalan sesekali, bukan di setiap request.
+// 2. Impor komponen-komponen ini secara dinamis
+// ssr: false berarti komponen ini hanya akan dirender di sisi klien
+const TypeTester = dynamic(() => import('@/components/TypeTester'), { ssr: false });
+const GlyphViewer = dynamic(() => import('@/components/GlyphViewer'), { ssr: false });
+
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
   partners: { name: string; slug: string } | null;
@@ -94,7 +89,6 @@ export default async function FontDetailPage({
 
   return (
     <>
-      {/* Bagian JSX (tampilan) tidak ada yang perlu diubah */}
       {font.display_font_italic_url && (
         <link
           rel="preload"
@@ -122,6 +116,7 @@ export default async function FontDetailPage({
               mainImage={font.main_image_url}
               galleryImages={Array.isArray(font.gallery_image_urls) ? font.gallery_image_urls as string[] : []}
             />
+            {/* 3. Komponen-komponen ini sekarang akan di-lazy load */}
             <TypeTester 
               fontFamilyRegular={dynamicFontFamilyRegular}
               fontFamilyItalic={font.display_font_italic_url ? dynamicFontFamilyItalic : undefined}

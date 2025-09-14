@@ -47,7 +47,7 @@ export default function AboutPage() {
             <div className="w-20 h-0.5 bg-brand-orange mt-4 mb-6"></div>
             <div className="space-y-4 font-light text-brand-black">
               <p>
-                We've all been there: you find a high quality font, you purchase it for a project, and then the frustration begins. Awkward letter connections, a limited character set, no multilingual support. A Stylish Typography tool becomes a technical headache. We knew there had to be a better way.
+                We&apos;ve all been there: you find a high quality font, you purchase it for a project, and then the frustration begins. Awkward letter connections, a limited character set, no multilingual support. A Stylish Typography tool becomes a technical headache. We knew there had to be a better way.
               </p>
               <p>
                 operatype.co was founded on a simple, pragmatic mission: to create stunningly stylish typography that just work, flawlessly. We combine our love for artistic calligraphy with a rigorous focus on technical excellence. This means every font is fully-featured, extensively tested, and designed to be intuitive for any creator.

@@ -33,7 +33,7 @@ const DeleteConfirmationModal = ({
                         <h3 className="text-lg leading-6 font-medium text-gray-900">Delete {itemType}</h3>
                         <div className="mt-2">
                             <p className="text-sm text-gray-500">
-                                Are you sure you want to delete <strong>"{itemName}"</strong>? This action is irreversible.
+                                Are you sure you want to delete <strong>&quot;{itemName}&quot;</strong>? This action is irreversible.
                             </p>
                         </div>
                     </div>

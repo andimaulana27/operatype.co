@@ -4,33 +4,29 @@ import Link from 'next/link';
 import { Tag } from 'lucide-react';
 import { Database } from '@/lib/database.types';
 
-// Define the types needed for the component
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type Font = Database['public']['Tables']['fonts']['Row'];
 export type FontWithDetailsForCard = Font & {
   font_discounts: { discounts: Discount | null }[];
 };
 
+// PERUBAHAN DI SINI: Tambahkan `priority` pada props
 type ProductCardProps = {
   font: FontWithDetailsForCard;
+  priority?: boolean; // Jadikan opsional
 };
 
-// Helper function to find the currently active discount
-// PERBAIKAN: Logika diubah untuk mencari diskon aktif di seluruh relasi
 const getActiveDiscount = (fontDiscounts: FontWithDetailsForCard['font_discounts'] | null): Discount | null => {
     if (!fontDiscounts || fontDiscounts.length === 0) {
         return null;
     }
     const now = new Date();
-    // Cari relasi pertama yang diskonnya valid dan aktif
     const activeDiscountRelation = fontDiscounts.find(fd => {
         const discount = fd.discounts;
-        // Pastikan diskon ada dan aktif
         if (discount && discount.is_active) {
             const startDate = discount.start_date ? new Date(discount.start_date) : null;
             const endDate = discount.end_date ? new Date(discount.end_date) : null;
             
-            // Cek apakah tanggal hari ini berada dalam rentang valid
             const isStarted = !startDate || now >= startDate;
             const isNotExpired = !endDate || now <= endDate;
             
@@ -38,11 +34,11 @@ const getActiveDiscount = (fontDiscounts: FontWithDetailsForCard['font_discounts
         }
         return false;
     });
-    // Kembalikan data diskon jika ditemukan
     return activeDiscountRelation ? activeDiscountRelation.discounts : null;
 };
 
-const ProductCard = ({ font }: ProductCardProps) => {
+// PERUBAHAN DI SINI: Terima `priority` dan teruskan ke komponen Image
+const ProductCard = ({ font, priority = false }: ProductCardProps) => {
   const truncateDescription = (text: string | null) => {
     if (!text) return 'No description available.';
     const firstSentence = text.split('.')[0];
@@ -67,6 +63,8 @@ const ProductCard = ({ font }: ProductCardProps) => {
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover group-hover:scale-105 transition-transform duration-300"
+            // Terapkan prop `priority` di sini
+            priority={priority}
           />
         </Link>
         {font.is_bestseller && (

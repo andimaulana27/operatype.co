@@ -91,9 +91,6 @@ export async function createOrderAction(
     const invoicePdf = await generateInvoicePdf(invoiceData);
     const emailOrderItems: OrderItemWithFont[] = insertedItems.map(item => ({...item, fonts: item.fonts as { name: string | null } | null}));
     
-    // ==================== PERBAIKAN UTAMA DI SINI ====================
-    // Menjalankan kedua promise secara independen.
-    // Kegagalan pada satu email tidak akan menghentikan pengiriman email lainnya.
     const emailPromises = [
       sendPurchaseConfirmationEmail(userDetails, emailOrderItems, transactionDetails, downloadLinks, invoicePdf),
       sendAdminSaleNotification(userDetails, emailOrderItems, transactionDetails)
@@ -104,22 +101,20 @@ export async function createOrderAction(
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         const emailType = index === 0 ? 'Purchase Confirmation' : 'Admin Sale Notification';
-        // Log error ke konsol server untuk debugging
         console.error(`GAGAL MENGIRIM EMAIL (${emailType}):`, result.reason);
       }
     });
-    // ===============================================================
 
     revalidatePath('/account', 'layout');
     return { success: 'Your order has been placed successfully! Please check your email.' };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
     console.error("Create Order Action Error:", error);
-    return { error: "An unexpected error occurred while processing your order." };
+    return { error: `An unexpected error occurred while processing your order: ${message}` };
   }
 }
 
-// ... sisa kode getAdminOrdersAction tetap sama
 export async function getAdminOrdersAction(page: number, limit: number, searchTerm: string = '') {
   const supabaseAdmin = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -152,8 +147,9 @@ export async function getAdminOrdersAction(page: number, limit: number, searchTe
 
     return { data, count, error: null };
 
-  } catch (error: any) {
-    console.error("Admin order fetch error:", error.message);
-    return { data: [], count: 0, error: error.message };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    console.error("Admin order fetch error:", message);
+    return { data: [], count: 0, error: message };
   }
 }

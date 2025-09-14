@@ -2,6 +2,7 @@
 'use client';
 
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
+import type { OnApproveData, OnApproveActions } from '@paypal/paypal-js';
 import { useCart } from '@/context/CartContext';
 import { createOrderAction } from '@/app/actions/orderActions';
 import { useRouter } from 'next/navigation';
@@ -14,12 +15,7 @@ const PayPalWrapper = () => {
   const [isPending, startTransition] = useTransition();
   const payPalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
 
-  // ==================== TAMBAHKAN KODE DEBUG DI SINI ====================
-  console.log("PayPal Client ID yang digunakan:", payPalClientId);
-  // ======================================================================
-
   if (!payPalClientId) {
-    // Pesan ini akan muncul jika variabel tidak ditemukan sama sekali
     console.error("Variabel NEXT_PUBLIC_PAYPAL_CLIENT_ID tidak ditemukan!");
     return <div className="text-center text-red-500">PayPal Client ID not found.</div>;
   }
@@ -30,18 +26,32 @@ const PayPalWrapper = () => {
     intent: "capture",
   };
 
-  const handleApprove = async (data: any, actions: any) => {
-    // ... (sisa kode tidak berubah)
+  const handleApprove = async (data: OnApproveData, actions: OnApproveActions) => {
     try {
-      const details = await actions.order.capture();
+      if (!actions.order) {
+        throw new Error('PayPal actions.order is not available.');
+      }
       
+      const details = await actions.order.capture();
+
+      if (!details.id) {
+        toast.error('Could not get transaction ID. Payment was not completed.');
+        console.error("PayPal capture details missing ID:", details);
+        return; 
+      }
+      
+      // ✅ PERBAIKAN FINAL: Simpan ID yang sudah divalidasi ke dalam konstanta baru.
+      const capturedOrderId = details.id;
+
       startTransition(async () => {
         toast.loading('Processing your order...');
         
+        // Gunakan konstanta `capturedOrderId` di sini. TypeScript sekarang 100% yakin
+        // bahwa nilainya adalah string.
         const transactionDetails = {
-          orderId: details.id,
-          payerEmail: details.payer.email_address,
-          payerName: `${details.payer.name.given_name} ${details.payer.name.surname}`,
+          orderId: capturedOrderId,
+          payerEmail: details.payer?.email_address ?? 'email-not-provided',
+          payerName: `${details.payer?.name?.given_name ?? 'Guest'} ${details.payer?.name?.surname ?? ''}`.trim(),
         };
         
         const result = await createOrderAction(cartItems, transactionDetails);
@@ -83,7 +93,7 @@ const PayPalWrapper = () => {
           });
         }}
         onApprove={handleApprove}
-        onError={(err) => {
+        onError={(err: Record<string, unknown>) => {
           toast.error("An error occurred with your PayPal transaction.");
           console.error("PayPal Error:", err);
         }}

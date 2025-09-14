@@ -2,9 +2,9 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { DownloadIcon } from '@/components/icons';
+// import { DownloadIcon } from '@/components/icons'; // Dihapus
 import ResetPasswordForm from '@/components/admin/ResetPasswordForm';
-import { getUserDetails, UserDetail } from '@/app/actions/userActions'; // Import the new server action and type
+import { getUserDetails } from '@/app/actions/userActions'; // Import UserDetail dihapus
 
 export default async function UserDetailPage({ params }: { params: { id: string } }) {
   const { data: user, error } = await getUserDetails(params.id);

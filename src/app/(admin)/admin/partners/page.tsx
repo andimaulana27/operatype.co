@@ -2,11 +2,9 @@
 
 // Jadikan Server Component untuk load data awal yang cepat
 import Link from 'next/link';
-import Image from 'next/image';
 import { Database } from '@/lib/database.types';
-import { PlusCircle, Search } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { getPartnersAction } from '@/app/actions/partnerActions';
-import AdminPagination from '@/components/admin/AdminPagination';
 import PartnerListClient from './PartnerListClient'; // Komponen baru untuk interaktivitas
 
 type Partner = Database['public']['Tables']['partners']['Row'];

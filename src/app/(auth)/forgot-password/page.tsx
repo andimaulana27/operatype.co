@@ -76,7 +76,7 @@ export default function ForgotPasswordPage() {
             <h1 className="text-3xl font-medium text-brand-black">Check Your Email</h1>
             <div className="w-16 h-0.5 bg-brand-orange mt-3 mb-6 mx-auto"></div>
             <p className="text-brand-gray-1">
-              We've sent a code to <strong>{email}</strong>. Enter it below to reset your password.
+              We&apos;ve sent a code to <strong>{email}</strong>. Enter it below to reset your password.
             </p>
           </div>
           <form action={handleOtpSubmit} className="space-y-4">

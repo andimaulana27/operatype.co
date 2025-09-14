@@ -5,7 +5,7 @@ import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Database } from '@/lib/database.types';
-import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle, Tag, Settings, X, Edit } from 'lucide-react';
+import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle, Tag, Settings, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 // ==================== PERBAIKAN KINERJA ====================
 // 1. Impor action baru yang akan kita gunakan

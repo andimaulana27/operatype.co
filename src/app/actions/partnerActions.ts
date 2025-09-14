@@ -7,9 +7,8 @@ import { revalidatePath } from 'next/cache';
 import { Database } from '@/lib/database.types';
 import { createClient } from '@supabase/supabase-js';
 
-type Partner = Database['public']['Tables']['partners']['Row'];
+// type Partner = Database['public']['Tables']['partners']['Row']; // Dihapus
 
-// --- FUNGSI BARU: Mengambil daftar partner dengan paginasi dan pencarian ---
 export async function getPartnersAction(options: { page: number, limit: number, searchTerm?: string }) {
   const { page, limit, searchTerm } = options;
   const supabase = createServerActionClient({ cookies });
@@ -33,12 +32,12 @@ export async function getPartnersAction(options: { page: number, limit: number, 
     if (error) throw error;
     
     return { data, count, error: null };
-  } catch (error: any) {
-    return { data: [], count: 0, error: error.message };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { data: [], count: 0, error: message };
   }
 }
 
-// --- FUNGSI LAMA: Diperbarui untuk lebih robust ---
 export async function addPartnerAction(formData: FormData) {
   const name = String(formData.get('name'));
   const subheadline = String(formData.get('subheadline'));
@@ -66,24 +65,24 @@ export async function addPartnerAction(formData: FormData) {
     revalidatePath('/admin/partners');
     revalidatePath('/partners');
     return { success: true };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { error: message };
   }
 }
 
-// --- FUNGSI BARU: Untuk halaman edit ---
 export async function getPartnerByIdAction(id: string) {
     const supabase = createServerActionClient<Database>({ cookies });
     try {
         const { data, error } = await supabase.from('partners').select('*').eq('id', id).single();
         if (error) throw error;
         return { data, error: null };
-    } catch(error: any) {
-        return { data: null, error: error.message };
+    } catch(error: unknown) {
+        const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+        return { data: null, error: message };
     }
 }
 
-// --- FUNGSI BARU: Untuk update partner ---
 export async function updatePartnerAction(id: string, formData: FormData) {
     const name = String(formData.get('name'));
     const subheadline = String(formData.get('subheadline'));
@@ -111,13 +110,13 @@ export async function updatePartnerAction(id: string, formData: FormData) {
         revalidatePath('/admin/partners');
         revalidatePath(`/partners/${slug}`);
         return { success: true };
-    } catch (error: any) {
-        return { error: error.message };
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+        return { error: message };
     }
 }
 
 
-// --- FUNGSI BARU: Untuk hapus partner ---
 export async function deletePartnerAction(id: string) {
     const supabase = createServerActionClient({ cookies });
     try {
@@ -126,7 +125,8 @@ export async function deletePartnerAction(id: string) {
         revalidatePath('/admin/partners');
         revalidatePath('/partners');
         return { success: true };
-    } catch (error: any) {
-        return { error: error.message };
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+        return { error: message };
     }
 }

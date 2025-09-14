@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { supabase } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation'; // Impor useRouter
+import { useRouter } from 'next/navigation';
 
 type Profile = {
   full_name: string | null;
@@ -52,8 +52,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         setProfile(null);
       }
-    } catch (error: any) {
-      toast.error("Could not fetch session: " + error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        toast.error("Could not fetch session: " + error.message);
+      } else {
+        toast.error("An unknown error occurred while fetching session.");
+      }
       setProfile(null);
       setUser(null);
       setSession(null);
@@ -66,17 +70,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     getSessionAndProfile();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
-        // --- PERBAIKAN UTAMA DI SINI ---
-        // Alur reset password ditangani secara lokal oleh komponen ResetPasswordForm.
-        // AuthContext harus mengabaikan event ini untuk mencegah refresh halaman yang tidak perlu
-        // yang dapat menghilangkan token dari URL.
+      // ✅ PERBAIKAN: Pastikan underscore tetap ada
+      (event, _newSession) => {
         if (event === 'PASSWORD_RECOVERY') {
           return;
         }
-        // --- AKHIR PERBAIKAN ---
-
-        // Untuk event lain (SIGNED_IN, SIGNED_OUT, etc.), jalankan seperti biasa.
+        
         getSessionAndProfile();
         router.refresh(); 
       }

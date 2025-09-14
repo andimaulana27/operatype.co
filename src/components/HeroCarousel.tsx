@@ -1,3 +1,4 @@
+// src/components/HeroCarousel.tsx
 'use client';
 
 import Image from 'next/image';
@@ -31,7 +32,14 @@ const HeroCarousel = () => {
         {heroSlides.map((slide, index) => (
           <SwiperSlide key={index}>
             <div className="relative w-full h-full">
-              <Image src={slide} alt={`Hero Slide ${index + 1}`} layout="fill" objectFit="cover" priority={index === 0} />
+              {/* PERUBAHAN DI SINI: Menambahkan `priority` hanya untuk slide pertama */}
+              <Image 
+                src={slide} 
+                alt={`Hero Slide ${index + 1}`} 
+                layout="fill" 
+                objectFit="cover" 
+                priority={index === 0} 
+              />
             </div>
           </SwiperSlide>
         ))}

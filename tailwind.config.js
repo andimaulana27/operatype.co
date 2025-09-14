@@ -16,9 +16,7 @@ module.exports = {
         'brand-gray-1': '#9C9C9C',
         'brand-gray-2': '#F2F2F2',
       },
-      fontFamily: {
-        sans: ['Poppins', 'sans-serif'],
-      },
+      // Hapus bagian fontFamily dari sini
     },
   },
   plugins: [],

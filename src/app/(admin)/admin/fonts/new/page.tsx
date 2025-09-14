@@ -1,16 +1,14 @@
 // src/app/(admin)/admin/fonts/new/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo, useRef, useCallback } from 'react'; // Import useCallback
 import { supabase } from '@/lib/supabaseClient';
-import { useRouter } from 'next/navigation';
 import { Database } from '@/lib/database.types';
 import opentype from 'opentype.js';
-import { useDropzone } from 'react-dropzone';
-import Image from 'next/image';
 import toast from 'react-hot-toast';
-import { PhotoIcon } from '@/components/icons';
 import { addFontAction } from '@/app/actions/fontActions';
+import FileUploadProgress from '@/components/admin/FileUploadProgress';
+import GalleryImageUploader from '@/components/admin/GalleryImageUploader';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
@@ -63,6 +61,7 @@ const TagInput = ({ name, label, tags, setTags }: { name: string, label: string,
   );
 };
 
+
 export default function AddNewFontPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [productInfo, setProductInfo] = useState<string[]>([]);
@@ -70,33 +69,33 @@ export default function AddNewFontPage() {
   const [slug, setSlug] = useState('');
   const [fileSize, setFileSize] = useState('');
   const [glyphString, setGlyphString] = useState('');
-
-  const [files, setFiles] = useState<{ 
-    mainImage?: File; 
-    galleryImages: File[];
-    displayFontRegular?: File; 
-    displayFontItalic?: File;
-    downloadableFile?: File 
-  }>({ galleryImages: [] });
-
+  
   const [categories, setCategories] = useState<Category[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
-  const router = useRouter();
   
   const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const onDropMainImage = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) setFiles(prev => ({ ...prev, mainImage: acceptedFiles[0] }));
-  }, []);
-  const { getRootProps: mainImageRootProps, getInputProps: mainImageInputProps, isDragActive: mainImageIsDragActive } = useDropzone({ onDrop: onDropMainImage, accept: { 'image/*': ['.jpeg', '.png', '.jpg', '.webp'] }, maxFiles: 1 });
-  const onDropGallery = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) setFiles(prev => ({ ...prev, galleryImages: [...prev.galleryImages, ...acceptedFiles].slice(0, 15) }));
-  }, []);
-  const { getRootProps: galleryRootProps, getInputProps: galleryInputProps, isDragActive: galleryIsDragActive } = useDropzone({ onDrop: onDropGallery, accept: { 'image/*': ['.jpeg', '.png', '.jpg', '.webp'] } });
-  const removeGalleryImage = (indexToRemove: number) => {
-    setFiles(prev => ({ ...prev, galleryImages: prev.galleryImages.filter((_, index) => index !== indexToRemove) }));
-  };
+  const [uploadedFileUrls, setUploadedFileUrls] = useState<Record<string, string | null>>({
+    main_image_url: null,
+    downloadable_file_url: null,
+    display_font_regular_url: null,
+    display_font_italic_url: null,
+  });
+  const [galleryImageUrls, setGalleryImageUrls] = useState<string[]>([]);
+  const [isGalleryUploading, setIsGalleryUploading] = useState(false);
+  const [uploadingStatus, setUploadingStatus] = useState<Record<string, boolean>>({});
 
+  const isAnyFileUploading = useMemo(() => {
+    return Object.values(uploadingStatus).some(status => status === true) || isGalleryUploading;
+  }, [uploadingStatus, isGalleryUploading]);
+
+  const areRequiredFilesReady = useMemo(() => {
+    return uploadedFileUrls.main_image_url && 
+           uploadedFileUrls.downloadable_file_url && 
+           uploadedFileUrls.display_font_regular_url;
+  }, [uploadedFileUrls]);
+  
   useEffect(() => {
     const fetchDropdownData = async () => {
       const { data: categoriesData } = await supabase.from('categories').select('*');
@@ -106,25 +105,26 @@ export default function AddNewFontPage() {
     };
     fetchDropdownData();
   }, []);
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, files: inputFiles } = e.target;
-    if (inputFiles && inputFiles.length > 0) {
-      const file = inputFiles[0];
-      setFiles(prev => ({ ...prev, [name]: file }));
-      if (name === 'displayFontRegular') scanGlyphs(file);
-      if (name === 'downloadableFile') {
-        const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
-        setFileSize(`${sizeInMB} MB`);
-      }
+
+  // PERBAIKAN: Menggunakan useCallback untuk menstabilkan fungsi
+  const handleUploadComplete = useCallback((fieldName: string, url: string | null, isUploading: boolean) => {
+    if(url !== null) {
+      setUploadedFileUrls(prev => ({ ...prev, [fieldName]: url }));
     }
-  };
+    setUploadingStatus(prev => ({...prev, [fieldName]: isUploading }));
+  }, []);
   
-  const scanGlyphs = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const font = opentype.parse(event.target?.result as ArrayBuffer);
+  // PERBAIKAN: Menggunakan useCallback untuk menstabilkan fungsi
+  const handleGalleryUploadChange = useCallback((urls: string[], isUploading: boolean) => {
+    setGalleryImageUrls(urls);
+    setIsGalleryUploading(isUploading);
+  }, []);
+  
+  const scanGlyphs = async (fileUrl: string) => {
+    try {
+        const response = await fetch(fileUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const font = opentype.parse(arrayBuffer);
         let glyphs = '';
         for (let i = 0; i < font.numGlyphs; i++) {
           const glyph = font.glyphs.get(i);
@@ -135,73 +135,35 @@ export default function AddNewFontPage() {
         }
         setGlyphString(glyphs);
         toast.success('Glyphs scanned successfully!');
-      } catch (err: any) {
-        toast.error(`Error parsing font file: ${err.message}`);
-      }
-    };
-    reader.readAsArrayBuffer(file);
+    } catch(err) {
+        toast.error('Failed to scan glyphs from font file.');
+    }
   };
   
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = (formData: FormData) => {
+    if (isAnyFileUploading) {
+        toast.error("Please wait for all file uploads to complete.");
+        return;
+    }
+    if (!areRequiredFilesReady) {
+        toast.error("Please upload all required files (*).");
+        return;
+    }
     
-    startTransition(async () => {
-      const form = e.currentTarget;
-      const formData = new FormData(form);
-
-      const uploadFile = async (file: File, bucket: string, isPublic: boolean = true) => {
-          if (!file) return '';
-          const filePath = `${Date.now()}_${file.name}`;
-          const { data, error } = await supabase.storage.from(bucket).upload(filePath, file);
-          if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
-          if (isPublic) {
-              return supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
-          }
-          return data.path;
-      };
-
-      try {
-        const uploadToast = toast.loading('Mengunggah file besar, mohon tunggu...');
-        
-        const [
-          mainImageUrl,
-          galleryImageUrls,
-          downloadableFileUrl,
-          displayFontRegularUrl,
-          displayFontItalicUrl
-        ] = await Promise.all([
-          uploadFile(files.mainImage!, 'font_images'),
-          Promise.all(files.galleryImages.map(f => uploadFile(f, 'font_images'))),
-          uploadFile(files.downloadableFile!, 'downloadable-files', false),
-          uploadFile(files.displayFontRegular!, 'display-fonts'),
-          uploadFile(files.displayFontItalic!, 'display-fonts')
-        ]);
-        
-        toast.dismiss(uploadToast);
-        toast.loading('File terunggah, menyimpan data font...');
-
-        formData.append('main_image_url', mainImageUrl);
-        galleryImageUrls.forEach(url => formData.append('gallery_image_urls', url));
-        formData.append('downloadable_file_url', downloadableFileUrl);
-        formData.append('display_font_regular_url', displayFontRegularUrl);
-        formData.append('display_font_italic_url', displayFontItalicUrl);
-
-        const result = await addFontAction(formData);
-
-        if (result?.error) {
-          toast.error(result.error);
-        } else if (result?.success) {
-          toast.success(result.success);
-          router.push('/admin/fonts');
-        }
-      } catch (error: any) {
-        toast.error(`Error: ${error.message}`);
-      }
+    Object.entries(uploadedFileUrls).forEach(([key, value]) => {
+        if(value) formData.append(key, value);
+    });
+    galleryImageUrls.forEach(url => formData.append('gallery_image_urls', url));
+    formData.append('file_size', fileSize);
+    formData.append('glyph_string', glyphString);
+    
+    startTransition(() => {
+        addFontAction(formData);
     });
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form ref={formRef} action={handleSubmit} className="pb-24">
         <div className="flex justify-between items-center mb-6">
             <div>
                 <h1 className="text-3xl font-bold text-gray-800">Add New Font</h1>
@@ -223,7 +185,6 @@ export default function AddNewFontPage() {
                     <label className="font-medium">Description</label>
                     <textarea name="description" rows={5} className="w-full p-2 border rounded-md mt-1" required />
                 </div>
-                {/* ==================== PERBAIKAN HARGA LISENSI ==================== */}
                 <div>
                     <h3 className="text-lg font-semibold border-b pb-2 mb-4">Licensing Prices</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -233,7 +194,6 @@ export default function AddNewFontPage() {
                         <div><label>Corporate Price</label><input type="number" step="0.01" name="price_corporate" defaultValue={0} className="w-full p-2 border rounded-md mt-1" required /></div>
                     </div>
                 </div>
-                {/* ==================================================================== */}
                 <TagInput name="product_information" label="Product Information" tags={productInfo} setTags={setProductInfo} />
                 <TagInput name="styles" label="Styles" tags={styles} setTags={setStyles} />
             </div>
@@ -242,6 +202,10 @@ export default function AddNewFontPage() {
                 <div>
                     <label className="font-medium">Status</label>
                     <select name="status" defaultValue="Draft" className="w-full p-2 border rounded-md mt-1"><option value="Draft">Draft</option><option value="Published">Published</option></select>
+                </div>
+                 <div className="flex items-center gap-4">
+                    <label htmlFor="is_bestseller" className="font-medium">Bestseller</label>
+                    <input type="checkbox" id="is_bestseller" name="is_bestseller" className="toggle toggle-warning" />
                 </div>
                 <div>
                     <label className="font-medium">Category</label>
@@ -254,35 +218,46 @@ export default function AddNewFontPage() {
                 <TagInput name="tags" label="Tags" tags={tags} setTags={setTags} />
             </div>
         </div>
-
+        
         <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Files & Images</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                    <label className="font-medium block mb-2">Main Preview Image</label>
-                    <div {...mainImageRootProps()} className={`relative group w-full h-80 border-2 border-dashed rounded-lg flex items-center justify-center text-center cursor-pointer transition-colors ${mainImageIsDragActive ? 'border-brand-orange bg-orange-50' : 'border-gray-300 hover:border-gray-400'}`}><input {...mainImageInputProps()} />{files.mainImage ? (<Image src={URL.createObjectURL(files.mainImage)} alt="Preview" fill style={{ objectFit: 'cover' }} className="rounded-lg" />) : (<div className="text-gray-500 flex flex-col items-center justify-center"><PhotoIcon className="w-16 h-16 text-gray-400 mb-2" /><p className="font-semibold text-brand-orange">Click to upload or drag and drop</p><p className="text-xs mt-1">PNG, JPG, WEBP</p></div>)}</div>
-                </div>
-                <div>
-                    <label className="font-medium block mb-2">Gallery Images (Max 15)</label>
-                    <div {...galleryRootProps()} className={`p-4 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors mb-4 ${galleryIsDragActive ? 'border-brand-orange bg-orange-50' : 'border-gray-300 hover:border-gray-400'}`}><input {...galleryInputProps()} /><p className="text-gray-500">Click or drag up to 15 images here</p></div>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                        {files.galleryImages.map((file, index) => (
-                            <div key={index} className="relative group aspect-square">
-                                <Image src={URL.createObjectURL(file)} alt={`gallery-preview-${index}`} fill style={{ objectFit: 'cover' }} className="rounded-md border-2 border-green-500" />
-                                <div onClick={() => removeGalleryImage(index)} className="absolute top-0 right-0 m-1 w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">&times;</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+            <p className="text-sm text-gray-500 mb-4 -mt-2">Unggah file akan dimulai secara otomatis. Tombol "Save Font" akan aktif setelah semua file wajib (bertanda *) selesai diunggah.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <FileUploadProgress 
+                    label="Main Preview Image *" 
+                    bucket="font_images" 
+                    fileTypes={{ 'image/*': ['.jpeg', '.png', '.jpg', '.webp'] }} 
+                    onUploadComplete={handleUploadComplete.bind(null, 'main_image_url')}
+                    isPublic={true}
+                />
+                <GalleryImageUploader onUploadChange={handleGalleryUploadChange} />
             </div>
-            <div className="mt-8 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label className="font-medium">Font Display File (Regular)</label><input type="file" name="displayFontRegular" onChange={handleFileChange} className="w-full mt-1 p-2 border rounded-md" accept=".otf,.ttf" /></div>
-                    <div><label className="font-medium">Font Display File (Italic)</label><input type="file" name="displayFontItalic" onChange={handleFileChange} className="w-full mt-1 p-2 border rounded-md" accept=".otf,.ttf" /></div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label className="font-medium">Downloadable Font File (ZIP)</label><input type="file" name="downloadableFile" onChange={handleFileChange} className="w-full mt-1 p-2 border rounded-md" accept=".zip" /></div>
-                    <div><label className="font-medium">File Size</label><input type="text" name="file_size" value={fileSize} className="w-full p-2 border rounded-md mt-1 bg-gray-100" readOnly /></div>
+            <div className="mt-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                     <FileUploadProgress 
+                        label="Downloadable Font File (ZIP) *" 
+                        bucket="downloadable-files" 
+                        fileTypes={{ 'application/zip': ['.zip'], 'application/x-zip-compressed': ['.zip'] }} 
+                        onUploadComplete={handleUploadComplete.bind(null, 'downloadable_file_url')}
+                        isPublic={false}
+                    />
+                     <FileUploadProgress 
+                        label="Font Display File (Regular) *" 
+                        bucket="display-fonts" 
+                        fileTypes={{ 'font/otf': ['.otf'], 'font/ttf': ['.ttf'] }} 
+                        onUploadComplete={(url, isUploading) => {
+                            handleUploadComplete('display_font_regular_url', url, isUploading);
+                            if (url) scanGlyphs(url);
+                        }}
+                        isPublic={true}
+                    />
+                     <FileUploadProgress 
+                        label="Font Display File (Italic)" 
+                        bucket="display-fonts" 
+                        fileTypes={{ 'font/otf': ['.otf'], 'font/ttf': ['.ttf'] }} 
+                        onUploadComplete={handleUploadComplete.bind(null, 'display_font_italic_url')}
+                        isPublic={true}
+                    />
                 </div>
                 <input type="hidden" name="file_types" value="OTF, TTF, WOFF" />
             </div>
@@ -290,20 +265,26 @@ export default function AddNewFontPage() {
       
         <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Glyph Display</h3>
-            <p className="text-sm text-gray-500 mb-2">Glyphs are scanned automatically from the display font file. You can edit them here if needed.</p>
+            <p className="text-sm text-gray-500 mb-2">Glyphs are scanned automatically from the display font file (Regular).</p>
             <textarea 
-                name="glyph_string" 
+                name="glyph_string"
                 value={glyphString} 
                 onChange={(e) => setGlyphString(e.target.value)}
                 rows={4} 
-                className="w-full p-2 border rounded-md bg-gray-100" 
+                className="w-full p-2 border rounded-md" 
             />
         </div>
 
-        <div className="mt-8 border-t pt-6 flex justify-end">
-            <button type="submit" disabled={isPending} className="bg-brand-orange text-white font-medium py-3 px-8 rounded-lg hover:bg-brand-orange-hover disabled:opacity-50 min-w-[150px] text-center">
-                {isPending ? 'Saving...' : 'Save Font'}
-            </button>
+        <div className="fixed bottom-0 left-0 lg:left-64 right-0 bg-white border-t border-gray-200 p-4 shadow-top z-40">
+            <div className="max-w-screen-xl mx-auto flex justify-end">
+                <button 
+                    type="submit" 
+                    disabled={isPending || !areRequiredFilesReady || isAnyFileUploading} 
+                    className="bg-brand-orange text-white font-medium py-3 px-8 rounded-lg hover:bg-brand-orange-hover disabled:opacity-50 disabled:cursor-not-allowed min-w-[150px] text-center"
+                >
+                    {isPending ? 'Saving...' : isAnyFileUploading ? 'Uploading Files...' : 'Save Font'}
+                </button>
+            </div>
         </div>
     </form>
   );

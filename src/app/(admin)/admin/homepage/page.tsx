@@ -1,7 +1,7 @@
 // src/app/(admin)/admin/homepage/page.tsx
 'use client';
 
-import { useState, useEffect, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Database } from '@/lib/database.types';
 import toast from 'react-hot-toast';
@@ -12,12 +12,6 @@ import { SearchIcon } from '@/components/icons';
 import AdminPagination from '@/components/admin/AdminPagination'; // Impor pagination
 
 type Font = Database['public']['Tables']['fonts']['Row'];
-
-type ColumnData = {
-  id: string;
-  title: string;
-  fonts: Font[];
-};
 
 const MAX_FONTS_PER_SECTION = 8;
 const ITEMS_PER_PAGE = 20; // Jumlah item per halaman untuk daftar "Available"
@@ -81,7 +75,7 @@ export default function ManageHomepagePage() {
         });
     };
     fetchAvailable();
-  }, [currentPage, searchTerm, showOnlyBestsellers]);
+  }, [currentPage, searchTerm, showOnlyBestsellers, isLoading]); // PERBAIKAN: isLoading ditambahkan ke dependency array
 
   const handleSelectFont = (fontId: string) => {
     setSelectedFonts(prev => 

@@ -5,11 +5,8 @@ import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@supabase/supabase-js'; // <-- 1. Impor createClient standar
+import { createClient } from '@supabase/supabase-js'; 
 
-// ... (fungsi lain tidak berubah)
-
-// --- PERBAIKAN UTAMA ADA DI FUNGSI INI ---
 export async function registerAction(formData: FormData) {
   const fullName = String(formData.get('fullName'));
   const email = String(formData.get('email'));
@@ -25,7 +22,6 @@ export async function registerAction(formData: FormData) {
     return { error: "Password must be at least 6 characters." };
   }
 
-  // Langkah 1: Daftarkan pengguna di Supabase Auth
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
@@ -44,9 +40,7 @@ export async function registerAction(formData: FormData) {
     return { error: "Registration failed, please try again." };
   }
 
-  // Langkah 2 (BARU): Sisipkan data ke tabel public.profiles
   try {
-    // Gunakan service_role key untuk melewati RLS
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -58,23 +52,24 @@ export async function registerAction(formData: FormData) {
         id: signUpData.user.id,
         full_name: fullName,
         email: email,
-        role: 'user', // Atur role default sebagai 'user'
+        role: 'user', 
       });
 
     if (profileError) {
-      // Jika penyisipan profil gagal, berikan pesan error
       return { error: `Could not create user profile: ${profileError.message}` };
     }
 
-  } catch (error: any) {
-    return { error: `An unexpected error occurred: ${error.message}` };
+  // PERBAIKAN: Mengganti tipe `any` dengan `unknown` dan menambahkan pengecekan.
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      return { error: `An unexpected error occurred: ${error.message}` };
+    }
+    return { error: 'An unexpected and untyped error occurred.' };
   }
 
-  // Jika semua berhasil, kembalikan success
   return { success: true, user: signUpData.user };
 }
 
-// ... (sisa fungsi tidak berubah)
 export async function verifyOtpAction(formData: FormData) {
   const supabase = createServerActionClient({ cookies });
   const email = String(formData.get('email'));
@@ -91,7 +86,6 @@ export async function verifyOtpAction(formData: FormData) {
   }
 
   revalidatePath('/', 'layout');
-  // Pastikan kita mengembalikan sesi
   return { success: true, user: data.user, session: data.session };
 }
 

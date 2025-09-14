@@ -16,7 +16,7 @@ const ContactFormEmail: React.FC<ContactEmailProps> = ({ senderName, senderEmail
       <Body style={main}>
         <Container style={container}>
           <Heading style={heading}>New Message from Contact Form</Heading>
-          <Text style={paragraph}>You have received a new message from your website's contact form.</Text>
+          <Text style={paragraph}>You have received a new message from your website&apos;s contact form.</Text>
           <Hr style={hr} />
           <Section>
             <Text><strong>From:</strong> {senderName}</Text>

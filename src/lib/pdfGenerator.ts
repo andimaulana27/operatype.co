@@ -5,6 +5,14 @@ import { InvoiceDetails } from "@/app/actions/invoiceActions"; // Kita gunakan l
 import fs from 'fs'; // <-- 1. Impor modul File System
 import path from 'path'; // <-- 2. Impor modul Path untuk menangani path file
 
+// ✅ PERBAIKAN 1: Buat interface untuk memperluas tipe jsPDF
+interface jsPDFWithAutoTable extends jsPDF {
+  lastAutoTable: {
+    finalY: number;
+  };
+}
+
+
 // Fungsi ini akan membuat PDF dan mengembalikannya sebagai Buffer
 export async function generateInvoicePdf(invoice: InvoiceDetails): Promise<Buffer> {
   if (!invoice || !invoice.user) {
@@ -92,7 +100,8 @@ export async function generateInvoicePdf(invoice: InvoiceDetails): Promise<Buffe
     margin: { left: margin, right: margin }
   });
 
-  let finalY = (doc as any).lastAutoTable.finalY;
+  // ✅ PERBAIKAN 2: Gunakan tipe yang sudah dibuat, bukan `any`
+  let finalY = (doc as jsPDFWithAutoTable).lastAutoTable.finalY;
   
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");

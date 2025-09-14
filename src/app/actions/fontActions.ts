@@ -4,62 +4,52 @@
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { Database } from '@/lib/database.types';
+import { redirect } from 'next/navigation'; // <-- 1. Import redirect
+import { Database, Json } from '@/lib/database.types';
 import { createClient } from '@supabase/supabase-js';
 
+// Tipe-tipe yang ada tetap sama
 type DiscountInsert = Database['public']['Tables']['discounts']['Insert'];
 type DiscountUpdate = Partial<Database['public']['Tables']['discounts']['Update']>;
+type FileUrlsToDelete = {
+  main_image_url?: string | null;
+  gallery_image_urls?: Json | null;
+  downloadable_file_url?: string | null;
+  display_font_regular_url?: string | null;
+  display_font_italic_url?: string | null;
+};
 
-// ==================== PERUBAHAN UTAMA DI SINI ====================
+
 export async function addFontAction(formData: FormData) {
   const supabase = createServerActionClient({ cookies });
 
   try {
-    // 1. Ekstrak semua data teks DAN URL dari FormData
     const name = String(formData.get('name'));
-    const description = String(formData.get('description'));
-    const price_desktop = Number(formData.get('price_desktop'));
-    // --- PERBAIKAN ---
-    const price_standard_commercial = Number(formData.get('price_standard_commercial'));
-    const price_extended_commercial = Number(formData.get('price_extended_commercial'));
-    // --- AKHIR PERBAIKAN ---
-    const price_corporate = Number(formData.get('price_corporate'));
-    const category_id = String(formData.get('category_id'));
-    const partner_id = formData.get('partner_id') ? String(formData.get('partner_id')) : null;
-    const status = String(formData.get('status'));
-    const is_bestseller = formData.get('is_bestseller') === 'on';
-    const glyph_string = String(formData.get('glyph_string'));
-    const file_size = String(formData.get('file_size'));
-    const file_types = String(formData.get('file_types'));
-    
-    // Ekstrak URL yang dikirim dari klien
-    const main_image_url = String(formData.get('main_image_url'));
-    const gallery_image_urls = formData.getAll('gallery_image_urls').map(String);
-    const downloadable_file_url = String(formData.get('downloadable_file_url'));
-    const display_font_regular_url = String(formData.get('display_font_regular_url'));
-    const display_font_italic_url = String(formData.get('display_font_italic_url'));
-
-    const tags = formData.getAll('tags').map(String);
-    const product_information = formData.getAll('product_information').map(String);
-    const styles = formData.getAll('styles').map(String);
-
-    // 2. Siapkan data untuk dimasukkan ke database
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    
+
     const finalData = {
-      name, slug, description, price_desktop, 
-      // --- PERBAIKAN ---
-      price_standard_commercial, 
-      price_extended_commercial,
-      // --- AKHIR PERBAIKAN ---
-      price_corporate,
-      category_id, partner_id, status, is_bestseller, glyph_string, file_size, file_types,
-      tags, product_information, styles,
-      main_image_url,
-      gallery_image_urls,
-      downloadable_file_url,
-      display_font_regular_url,
-      display_font_italic_url,
+      name,
+      slug,
+      description: String(formData.get('description')),
+      price_desktop: Number(formData.get('price_desktop')),
+      price_standard_commercial: Number(formData.get('price_standard_commercial')),
+      price_extended_commercial: Number(formData.get('price_extended_commercial')),
+      price_corporate: Number(formData.get('price_corporate')),
+      category_id: String(formData.get('category_id')),
+      partner_id: formData.get('partner_id') ? String(formData.get('partner_id')) : null,
+      status: String(formData.get('status')),
+      is_bestseller: formData.get('is_bestseller') === 'on',
+      glyph_string: String(formData.get('glyph_string')),
+      file_size: String(formData.get('file_size')),
+      file_types: String(formData.get('file_types')),
+      tags: formData.getAll('tags').map(String),
+      product_information: formData.getAll('product_information').map(String),
+      styles: formData.getAll('styles').map(String),
+      main_image_url: String(formData.get('main_image_url')),
+      gallery_image_urls: formData.getAll('gallery_image_urls').map(String),
+      downloadable_file_url: String(formData.get('downloadable_file_url')),
+      display_font_regular_url: String(formData.get('display_font_regular_url')),
+      display_font_italic_url: String(formData.get('display_font_italic_url')),
     };
 
     const { error } = await supabase.from('fonts').insert([finalData]);
@@ -68,22 +58,87 @@ export async function addFontAction(formData: FormData) {
         throw error;
     }
     
-    // 3. Revalidate path untuk memperbarui cache
     revalidatePath('/admin/fonts');
     revalidatePath('/fonts');
     revalidatePath('/');
     
-    return { success: 'Font berhasil ditambahkan!' };
-  } catch (error: any) {
-    console.error("Add Font Action Error: ", error);
-    return { error: `Gagal menambahkan font: ${error.message}` };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    console.error("Add Font Action Error: ", message);
+    // 2. Jika error, redirect kembali dengan pesan error
+    return redirect(`/admin/fonts/new?error=${encodeURIComponent(message)}`);
   }
-}
-// ===============================================================
 
-// Sisa kode di file ini (deleteFontAction, updateFontAction, dll) tetap sama
-export async function deleteFontAction(fontId: string, fileUrls: any) {
-    // ...
+  // 3. Jika berhasil, redirect dengan pesan sukses
+  redirect('/admin/fonts?message=Font berhasil ditambahkan!');
+}
+
+export async function updateFontAction(id: string, formData: FormData) {
+   const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  let slugForRedirect = String(formData.get('slug'));
+
+  try {
+    const name = String(formData.get('name'));
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    slugForRedirect = slug; // Update slug untuk redirect
+    
+    const updateData: Database['public']['Tables']['fonts']['Update'] = {
+        name,
+        slug,
+        description: String(formData.get('description')),
+        price_desktop: Number(formData.get('price_desktop')),
+        price_standard_commercial: Number(formData.get('price_standard_commercial')),
+        price_extended_commercial: Number(formData.get('price_extended_commercial')),
+        price_corporate: Number(formData.get('price_corporate')),
+        category_id: String(formData.get('category_id')),
+        partner_id: formData.get('partner_id') ? String(formData.get('partner_id')) : null,
+        status: String(formData.get('status')),
+        is_bestseller: formData.get('is_bestseller') === 'on',
+        glyph_string: String(formData.get('glyph_string')),
+        file_size: String(formData.get('file_size')),
+        file_types: String(formData.get('file_types')),
+        tags: formData.getAll('tags').map(String),
+        product_information: formData.getAll('product_information').map(String),
+        styles: formData.getAll('styles').map(String),
+        main_image_url: String(formData.get('main_image_url')),
+        gallery_image_urls: formData.getAll('gallery_image_urls').map(String),
+        downloadable_file_url: String(formData.get('downloadable_file_url')),
+        display_font_regular_url: String(formData.get('display_font_regular_url')),
+        display_font_italic_url: String(formData.get('display_font_italic_url')),
+    };
+
+
+    const { error } = await supabaseAdmin
+      .from('fonts')
+      .update(updateData)
+      .eq('id', id);
+
+    if (error) throw error;
+
+    revalidatePath('/');
+    revalidatePath('/fonts');
+    if (updateData.slug) {
+      revalidatePath(`/fonts/${updateData.slug}`);
+    }
+    revalidatePath('/admin/fonts');
+
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    // 4. Jika error, redirect kembali ke halaman edit dengan pesan error
+    return redirect(`/admin/fonts/edit/${id}?error=${encodeURIComponent(message)}`);
+  }
+
+  // 5. Jika berhasil, redirect dengan pesan sukses
+  redirect('/admin/fonts?message=Font berhasil diperbarui!');
+}
+
+
+// ... (Sisa dari file fontActions.ts tetap sama, tidak perlu diubah)
+// ...
+export async function deleteFontAction(fontId: string, fileUrls: FileUrlsToDelete) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -117,14 +172,15 @@ export async function deleteFontAction(fontId: string, fileUrls: any) {
         if (path) pathsToDelete['display-fonts'].push(path);
     }
     if (fileUrls.downloadable_file_url) {
-        // Asumsi downloadable_file_url adalah path, bukan public URL
-        pathsToDelete['downloadable-files'].push(fileUrls.downloadable_file_url);
+        const path = fileUrls.downloadable_file_url;
+        if(path) pathsToDelete['downloadable-files'].push(path);
     }
-
+    
     if (Array.isArray(fileUrls.gallery_image_urls)) {
-        const galleryPaths = fileUrls.gallery_image_urls
-            .map((url: string) => getPathFromUrl(url, 'font_images'))
-            .filter((p: string | null): p is string => p !== null);
+        const urls = fileUrls.gallery_image_urls as string[];
+        const galleryPaths = urls
+            .map((url) => getPathFromUrl(url, 'font_images'))
+            .filter((p): p is string => p !== null);
         pathsToDelete.font_images.push(...galleryPaths);
     }
     
@@ -147,38 +203,9 @@ export async function deleteFontAction(fontId: string, fileUrls: any) {
     }
     revalidatePath('/admin/fonts');
     return { success: 'Font and associated files deleted successfully!' };
-  } catch (error: any) {
-    return { error: `Deletion failed: ${error.message}` };
-  }
-}
-export async function updateFontAction(fontId: string, updateData: any) {
-   const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-  try {
-    const { error } = await supabaseAdmin
-      .from('fonts')
-      .update(updateData)
-      .eq('id', fontId);
-
-    if (error) {
-      if (error.message.includes("column") && error.message.includes("does not exist")) {
-        throw new Error(`Database Error: A column in the data does not exist in the 'fonts' table.`);
-      }
-      throw error;
-    }
-
-    revalidatePath('/');
-    revalidatePath('/fonts');
-    if (updateData.slug) {
-      revalidatePath(`/fonts/${updateData.slug}`);
-    }
-    revalidatePath('/admin/fonts');
-
-    return { success: 'Font updated successfully!' };
-  } catch (error: any) {
-    return { error: `Update failed: ${error.message}` };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { error: `Deletion failed: ${message}` };
   }
 }
 export async function updateFontStatusAction(
@@ -197,8 +224,9 @@ export async function updateFontStatusAction(
     revalidatePath('/');
     
     return { success: 'Font status updated successfully.' };
-  } catch (error: any) {
-    return { error: `Database error: ${error.message}` };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { error: `Database error: ${message}` };
   }
 }
 export async function updateHomepageLayoutAction(
@@ -238,9 +266,10 @@ export async function updateHomepageLayoutAction(
     revalidatePath('/');
 
     return { success: 'Homepage layout saved successfully!' };
-  } catch (error: any) {
-    console.error('Error saving homepage layout:', error);
-    return { error: `Failed to save layout: ${error.message}` };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    console.error('Error saving homepage layout:', message);
+    return { error: `Failed to save layout: ${message}` };
   }
 }
 export async function createDiscountAction(data: DiscountInsert) {
@@ -262,8 +291,9 @@ export async function createDiscountAction(data: DiscountInsert) {
     revalidatePath('/fonts');
     
     return { success: `Discount "${data.name}" created successfully!` };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { error: message };
   }
 }
 export async function deleteDiscountAction(discountId: string) {
@@ -291,8 +321,9 @@ export async function deleteDiscountAction(discountId: string) {
     revalidatePath('/fonts');
 
     return { success: 'Discount deleted successfully.' };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { error: message };
   }
 }
 export async function updateDiscountAction(discountId: string, updateData: DiscountUpdate) {
@@ -315,8 +346,9 @@ export async function updateDiscountAction(discountId: string, updateData: Disco
     revalidatePath('/fonts');
     
     return { success: 'Discount updated successfully!' };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { error: message };
   }
 }
 
@@ -329,7 +361,6 @@ export async function getAdminFontsAction(options: {
 }) {
   const { page, limit, searchTerm, category, partner } = options;
   
-  // Gunakan service key untuk akses penuh
   const supabaseAdmin = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -367,9 +398,10 @@ export async function getAdminFontsAction(options: {
     
     return { data, count, error: null };
 
-  } catch (error: any) {
-    console.error("Admin fonts fetch error:", error.message);
-    return { data: [], count: 0, error: error.message };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    console.error("Admin fonts fetch error:", message);
+    return { data: [], count: 0, error: message };
   }
 }
 
@@ -383,7 +415,6 @@ export async function applyDiscountToFontsAction(
   );
 
   try {
-    // Selalu hapus relasi diskon yang lama terlebih dahulu
     const { error: deleteError } = await supabaseAdmin
       .from('font_discounts')
       .delete()
@@ -391,7 +422,6 @@ export async function applyDiscountToFontsAction(
 
     if (deleteError) throw new Error(`Error clearing existing discounts: ${deleteError.message}`);
 
-    // Jika ada discountId baru, sisipkan relasi yang baru
     if (discountId) {
       const recordsToInsert = fontIds.map(fontId => ({
         font_id: fontId,
@@ -413,8 +443,9 @@ export async function applyDiscountToFontsAction(
     revalidatePath('/fonts');
     return { success: `Discounts removed from ${fontIds.length} font(s).` };
 
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { error: message };
   }
 }
 
@@ -437,11 +468,7 @@ export async function getAvailableHomepageFontsAction(options: {
       .select('*', { count: 'exact' })
       .eq('status', 'Published');
 
-    // ==================== PERBAIKAN BUG ====================
-    // Gunakan .or() untuk mencari font yang kolom homepage_section-nya
-    // entah NULL (belum pernah diatur) ATAU 'none' (sudah dihapus dari homepage).
     query = query.or('homepage_section.is.null,homepage_section.eq.none');
-    // =======================================================
 
     if (searchTerm) {
       query = query.ilike('name', `%${searchTerm}%`);
@@ -461,8 +488,9 @@ export async function getAvailableHomepageFontsAction(options: {
     
     return { data, count, error: null };
 
-  } catch (error: any) {
-    console.error("Available homepage fonts fetch error:", error.message);
-    return { data: [], count: 0, error: error.message };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    console.error("Available homepage fonts fetch error:", message);
+    return { data: [], count: 0, error: message };
   }
 }

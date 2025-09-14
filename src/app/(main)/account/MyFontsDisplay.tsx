@@ -63,7 +63,7 @@ export default function MyFontsDisplay({ fonts, totalPages, currentPage }: MyFon
             )}
           </div>
         ) : (
-          <p className="text-center py-8 text-brand-gray-1">You haven't purchased any fonts yet.</p>
+          <p className="text-center py-8 text-brand-gray-1">You haven&apos;t purchased any fonts yet.</p>
         )}
       </div>
     </section>

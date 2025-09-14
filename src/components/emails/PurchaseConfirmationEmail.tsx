@@ -1,6 +1,6 @@
 // src/components/emails/PurchaseConfirmationEmail.tsx
 import * as React from 'react';
-import { Html, Head, Body, Container, Heading, Text, Section, Row, Column, Hr, Link, Img, Button } from '@react-email/components';
+import { Html, Head, Body, Container, Heading, Text, Section, Row, Column, Hr, Img, Button } from '@react-email/components';
 
 interface EmailProps {
   customerName: string;
@@ -16,9 +16,7 @@ interface EmailProps {
 const PurchaseConfirmationEmail: React.FC<EmailProps> = ({ customerName, orderId, orders, downloadLinks }) => {
   const totalAmount = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
   const websiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.operatype.co';
-  // ==================== PERBAIKAN LOGO DI SINI ====================
   const logoUrl = `${websiteUrl}/logo-operatype.png`;
-  // ===============================================================
 
   return (
     <Html>

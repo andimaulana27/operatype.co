@@ -1,5 +1,6 @@
 // src/app/layout.tsx
 import type { Metadata } from 'next'
+// 1. Ganti cara impor font Poppins
 import { Poppins } from 'next/font/google'
 import './globals.css'
 import { CartProvider } from '@/context/CartContext';
@@ -8,12 +9,13 @@ import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
 import ToastNotifier from '@/components/ToastNotifier';
 
+// 2. Konfigurasikan font di sini dengan semua bobot (weight) yang digunakan
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['300', '500'],
+  weight: ['300', '400', '500', '700'], // Pastikan semua bobot terdaftar
+  display: 'swap', // Tampilkan font cadangan selagi font utama dimuat
 });
 
-// ==================== KODE SEO YANG DIPERBARUI ====================
 export const metadata: Metadata = {
   title: {
     default: 'Operatype - High Quality Script & Display Fonts',
@@ -22,20 +24,17 @@ export const metadata: Metadata = {
   description: 'Discover a curated library of high-quality, versatile script and display fonts. Complete with full character sets and commercial licenses, ready for any project.',
   keywords: ['script fonts', 'display fonts', 'typography', 'font foundry', 'commercial fonts', 'operatype'],
   authors: [{ name: 'Operatype' }],
-  // --- PERBAIKAN UTAMA PADA BAGIAN ICONS ---
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
-      { url: '/favicon.png', type: 'image/png' }, // Menggunakan favicon.png Anda
+      { url: '/favicon.png', type: 'image/png' },
     ],
-    apple: '/apple-touch-icon.png', // Anda perlu membuat ikon ini (180x180px) dan letakkan di folder /public
+    apple: '/apple-touch-icon.png',
   },
-  // ------------------------------------------
   verification: {
     google: 'RZZYhZYznBzZ549pRN5uIk9tFl9I5ZSLFREHY9HD310',
   },
 }
-// ===============================================================
 
 export default function RootLayout({
   children,
@@ -66,7 +65,8 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body>
+      {/* 3. Terapkan className dari variabel font ke tag <body> */}
+      <body className={poppins.className}>
         <Script
           id="website-schema"
           type="application/ld+json"

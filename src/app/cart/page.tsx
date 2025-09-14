@@ -33,7 +33,7 @@ export default function CartPage() {
             </>
         );
     }
-    return <Link href="/login" className="text-brand-orange hover:underline">Please log in to continue.</Link>;
+    return <Link href="/login?next=/cart" className="text-brand-orange hover:underline">Please log in to continue.</Link>;
   };
 
   return (
@@ -44,8 +44,8 @@ export default function CartPage() {
       </div>
       
       <div className="bg-orange-50 border border-orange-200 text-center rounded-lg p-6 my-8">
-        <h3 className="font-medium text-orange-600">Don't miss out on these deals!</h3>
-        <p className="text-sm text-orange-500 mt-2">Prices will change when the clock runs out, shop now before it's too late.</p>
+        <h3 className="font-medium text-orange-600">Don&apos;t miss out on these deals!</h3>
+        <p className="text-sm text-orange-500 mt-2">Prices will change when the clock runs out, shop now before it&apos;s too late.</p>
         <CountdownTimer />
       </div>
 
@@ -118,10 +118,30 @@ export default function CartPage() {
 
           <div>
             <h3 className="text-lg font-medium mb-4">Payment Method</h3>
-            {/* --- PERBAIKAN 2: Selalu tampilkan PayPalWrapper --- */}
-            <div className={!user ? 'opacity-50 cursor-not-allowed' : ''}>
+            
+            {/* ==================== PERBAIKAN UTAMA DI SINI ==================== */}
+            {loading ? (
+              // 1. Tampilkan tombol loading saat data user sedang diperiksa
+              <button
+                disabled
+                className="w-full bg-gray-300 text-gray-500 font-medium py-4 rounded-full cursor-not-allowed animate-pulse"
+              >
+                Loading User...
+              </button>
+            ) : user ? (
+              // 2. Jika user sudah login, tampilkan tombol PayPal
               <PayPalWrapper />
-            </div>
+            ) : (
+              // 3. Jika user belum login, tampilkan tombol yang mengarah ke halaman login
+              <Link href="/login?next=/cart" className="w-full block">
+                <button
+                  className="w-full bg-brand-orange text-white font-medium py-4 rounded-full hover:bg-brand-orange-hover transition-colors"
+                >
+                  Login to Continue Checkout
+                </button>
+              </Link>
+            )}
+            {/* =================================================================== */}
             
             <p className="text-xs text-brand-gray-1 mt-4 text-center">
               Your receipt and download links will be sent to your dashboard profile after purchase.
