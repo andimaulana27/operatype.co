@@ -3,7 +3,6 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Sidebar from '@/components/admin/Sidebar';
-// HAPUS: import ToastNotifier dari sini
 
 export default async function AdminLayout({
   children,
@@ -28,11 +27,15 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex h-screen bg-brand-gray-2">
-      {/* HAPUS: ToastNotifier dari sini */}
+    // PERUBAHAN DI SINI:
+    // Ganti `h-screen` menjadi `min-h-screen` agar tinggi kontainer bisa lebih panjang dari layar.
+    <div className="flex min-h-screen bg-brand-gray-2">
       <Sidebar />
       <div className="w-px bg-brand-black"></div>
-      <main className="flex-1 p-8 overflow-y-auto">
+      {/* PERUBAHAN DI SINI:
+          Hapus `overflow-y-auto` agar seluruh halaman bisa di-scroll, bukan hanya area <main>.
+      */}
+      <main className="flex-1 p-8">
         {children}
       </main>
     </div>

@@ -19,18 +19,19 @@ const navLinks = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, profile, handleLogout } = useAuth(); // Ambil handleLogout dari context
+  const { user, profile, handleLogout } = useAuth();
   const [isPending, startTransition] = useTransition();
 
-  // Buat fungsi wrapper sama seperti di AccountSidebar
   const onLogoutClick = () => {
     startTransition(async () => {
-      await handleLogout(); // Gunakan fungsi dari context
+      await handleLogout();
     });
   };
 
   return (
-    <aside className="w-64 bg-white text-brand-black flex flex-col">
+    // PERUBAHAN DI SINI:
+    // Tambahkan `sticky top-0 h-screen` untuk membuat sidebar menempel di atas dan mengisi tinggi layar.
+    <aside className="w-64 bg-white text-brand-black flex flex-col sticky top-0 h-screen">
       <div className="p-6 border-b border-brand-gray-2">
         <Link href="/">
             <Image
@@ -66,7 +67,6 @@ export default function Sidebar() {
           <p className="font-semibold">{profile?.full_name || 'Admin'}</p>
           <p className="text-xs text-brand-gray-1">{user?.email}</p>
         </div>
-        {/* Ubah dari <form> menjadi <button> */}
         <button 
           onClick={onLogoutClick}
           disabled={isPending}
