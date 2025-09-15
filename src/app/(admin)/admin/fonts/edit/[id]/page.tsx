@@ -1,7 +1,7 @@
 // src/app/(admin)/admin/fonts/edit/[id]/page.tsx
 'use client';
 
-import { useState, useEffect, useTransition, useMemo, useRef, useCallback } from 'react'; // Import useCallback
+import { useState, useEffect, useTransition, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useParams } from 'next/navigation';
 import { Database } from '@/lib/database.types';
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { updateFontAction } from '@/app/actions/fontActions';
 import FileUploadProgress from '@/components/admin/FileUploadProgress';
 import GalleryImageUploader from '@/components/admin/GalleryImageUploader';
+import opentype from 'opentype.js';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
@@ -84,6 +85,28 @@ export default function EditFontPage() {
     return Object.values(uploadingStatus).some(status => status === true) || isGalleryUploading;
   }, [uploadingStatus, isGalleryUploading]);
 
+  const scanGlyphs = async (fileUrl: string) => {
+    try {
+        const response = await fetch(fileUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const font = opentype.parse(arrayBuffer);
+        let glyphs = '';
+        for (let i = 0; i < font.numGlyphs; i++) {
+          const glyph = font.glyphs.get(i);
+          if (glyph.unicode) {
+            const char = String.fromCharCode(glyph.unicode);
+            if (char.trim().length > 0 || char === ' ') glyphs += char;
+          }
+        }
+        setFormData(prev => ({ ...prev, glyph_string: glyphs }));
+        toast.success('Glyphs re-scanned successfully!');
+    // <-- PERBAIKAN ESLINT: Mengganti (err) dengan (e: unknown) untuk type safety
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'An unknown error occurred.';
+        toast.error(`Failed to scan glyphs: ${message}`);
+    }
+  };
+
   useEffect(() => {
     if (!fontId) return;
 
@@ -135,13 +158,11 @@ export default function EditFontPage() {
     fetchInitialData();
   }, [fontId]);
 
-  // PERBAIKAN: Menggunakan useCallback untuk menstabilkan fungsi
   const handleUploadComplete = useCallback((fieldName: string, url: string | null, isUploading: boolean) => {
     setFileUrls(prev => ({ ...prev, [fieldName]: url }));
     setUploadingStatus(prev => ({...prev, [fieldName]: isUploading }));
   }, []);
   
-  // PERBAIKAN: Menggunakan useCallback untuk menstabilkan fungsi
   const handleGalleryUploadChange = useCallback((urls: string[], isUploading: boolean) => {
     setGalleryImageUrls(urls);
     setIsGalleryUploading(isUploading);
@@ -243,7 +264,7 @@ export default function EditFontPage() {
 
         <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Files & Images</h3>
-            <p className="text-sm text-gray-500 mb-4 -mt-2">File yang sudah ada akan diganti jika Anda mengunggah file baru. Tombol "Save" akan nonaktif selama proses unggah berlangsung.</p>
+            <p className="text-sm text-gray-500 mb-4 -mt-2">File yang sudah ada akan diganti jika Anda mengunggah file baru. Tombol `Save` akan nonaktif selama proses unggah berlangsung.</p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <FileUploadProgress 
                     label="Main Preview Image" 
@@ -272,7 +293,12 @@ export default function EditFontPage() {
                         label="Font Display File (Regular)" 
                         bucket="display-fonts" 
                         fileTypes={{ 'font/otf': ['.otf'], 'font/ttf': ['.ttf'] }} 
-                        onUploadComplete={handleUploadComplete.bind(null, 'display_font_regular_url')}
+                        onUploadComplete={(url, isUploading) => {
+                            handleUploadComplete('display_font_regular_url', url, isUploading);
+                            if (url) {
+                                scanGlyphs(url);
+                            }
+                        }}
                         isPublic={true}
                         existingFileUrl={fileUrls.display_font_regular_url}
                     />
@@ -288,6 +314,18 @@ export default function EditFontPage() {
             </div>
         </div>
         
+        <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold border-b pb-2 mb-4">Glyph Display</h3>
+            <p className="text-sm text-gray-500 mb-2">Glyphs will be scanned automatically when you upload a new `Regular` display font.</p>
+            <textarea
+                name="glyph_string"
+                value={formData.glyph_string || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, glyph_string: e.target.value }))}
+                rows={4}
+                className="w-full p-2 border rounded-md"
+            />
+        </div>
+
         <div className="fixed bottom-0 left-0 lg:left-64 right-0 bg-white border-t border-gray-200 p-4 shadow-top z-40">
             <div className="max-w-screen-xl mx-auto flex justify-end">
                 <button 
@@ -295,7 +333,8 @@ export default function EditFontPage() {
                     disabled={isPending || isAnyFileUploading} 
                     className="bg-brand-orange text-white font-medium py-3 px-8 rounded-lg hover:bg-brand-orange-hover disabled:opacity-50 disabled:cursor-not-allowed min-w-[150px] text-center"
                 >
-                    {isPending ? 'Saving...' : isAnyFileUploading ? 'Uploading Files...' : 'Save Changes'}
+                    {/* <-- PERBAIKAN ESLINT: Mengganti ' dengan " untuk string literals */}
+                    {isPending ? "Saving..." : isAnyFileUploading ? "Uploading..." : "Save Changes"}
                 </button>
             </div>
         </div>
