@@ -19,7 +19,8 @@ export async function sendPurchaseConfirmationEmail(
     userDetails: UserDetails, orders: OrderWithFont[],
     transactionDetails: TransactionDetails,
     downloadLinks: { name: string; url: string }[],
-    invoicePdf: Buffer
+    invoicePdf: Buffer,
+    eulaPdf: Buffer // <-- 1. Tambahkan parameter untuk EULA
 ) {
   try {
     await resend.emails.send({
@@ -32,9 +33,13 @@ export async function sendPurchaseConfirmationEmail(
         orders: orders,
         downloadLinks: downloadLinks,
       }),
+      // --- 2. Lampirkan kedua file ---
       attachments: [{
         filename: `invoice-${transactionDetails.orderId}.pdf`,
         content: invoicePdf,
+      }, {
+        filename: `EULA-${transactionDetails.orderId}.pdf`,
+        content: eulaPdf,
       }],
     });
     return { success: true };
@@ -83,9 +88,7 @@ export async function sendContactFormEmail(formData: FormData) {
     await resend.emails.send({
       from: 'Operatype.co Contact Form <contact@operatype.co>',
       to: 'operatype.co@gmail.com',
-      // --- PERBAIKAN DI SINI ---
-      replyTo: email, // Diubah dari reply_to menjadi replyTo (camelCase)
-      // -------------------------
+      replyTo: email,
       subject: `New Contact Message: ${subject}`,
       react: ContactFormEmail({
         senderName: name,

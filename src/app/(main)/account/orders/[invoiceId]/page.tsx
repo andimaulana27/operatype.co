@@ -1,17 +1,11 @@
 // src/app/(main)/account/orders/[invoiceId]/page.tsx
-
 // Halaman ini tidak lagi menjadi Client Component
-// export const revalidate = 0; // Tidak perlu revalidate untuk halaman dinamis per user
-
-import { getInvoiceDetailsAction, InvoiceDetails } from '@/app/actions/invoiceActions';
-import { DownloadIcon } from '@/components/icons';
-import Image from 'next/image';
-import Link from 'next/link'; // Gunakan Link untuk navigasi
-import InvoiceDisplay from './InvoiceDisplay'; // Komponen baru untuk sisi klien
+// --- PERBAIKAN: Hapus import yang tidak digunakan ---
+import { getInvoiceDetailsAction } from '@/app/actions/invoiceActions';
+import Link from 'next/link';
+import InvoiceDisplay from './InvoiceDisplay';
 
 export default async function InvoicePage({ params }: { params: { invoiceId: string } }) {
-  // 1. Ambil data langsung di Server Component.
-  // Pengguna tidak akan melihat state loading sama sekali.
   const { data: invoice, error } = await getInvoiceDetailsAction(params.invoiceId);
 
   if (error || !invoice) {
@@ -26,7 +20,5 @@ export default async function InvoicePage({ params }: { params: { invoiceId: str
     );
   }
 
-  // 2. Kirim data yang sudah siap ke komponen klien.
-  // Komponen klien hanya bertugas untuk menampilkan data dan menangani interaksi (seperti download PDF).
   return <InvoiceDisplay invoice={invoice} />;
 }

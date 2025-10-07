@@ -4,15 +4,16 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/lib/supabaseClient';
-import { UploadCloud, CheckCircle2, AlertCircle, X, Image as ImageIcon, File as FileIcon, FileArchive } from 'lucide-react'; // PERBAIKAN: Mengganti FileZip menjadi FileArchive
+import { UploadCloud, CheckCircle2, AlertCircle, X, Image as ImageIcon, File as FileIcon, FileArchive } from 'lucide-react';
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
 type FileUploadProgressProps = {
-  label: string;
+  label: React.ReactNode; // Ubah tipe dari string ke ReactNode
   bucket: string;
   fileTypes: { [key: string]: string[] };
-  onUploadComplete: (filePath: string | null, isUploading: boolean) => void;
+  // --- PERBAIKAN 1: Tambahkan parameter fileSize ---
+  onUploadComplete: (filePath: string | null, isUploading: boolean, fileSize?: number) => void;
   isPublic?: boolean;
   existingFileUrl?: string | null;
 };
@@ -20,7 +21,7 @@ type FileUploadProgressProps = {
 const getFileIcon = (fileType?: string) => {
     if (!fileType) return <FileIcon className="w-8 h-8 text-gray-400" />;
     if (fileType.startsWith('image/')) return <ImageIcon className="w-8 h-8 text-gray-400" />;
-    if (fileType.includes('zip')) return <FileArchive className="w-8 h-8 text-gray-400" />; // PERBAIKAN: Menggunakan FileArchive
+    if (fileType.includes('zip')) return <FileArchive className="w-8 h-8 text-gray-400" />;
     return <FileIcon className="w-8 h-8 text-gray-400" />;
 };
 
@@ -71,7 +72,8 @@ export default function FileUploadProgress({
         finalUrl = publicUrlData.publicUrl;
       }
       
-      onUploadComplete(finalUrl, false);
+      // --- PERBAIKAN 2: Kirim ukuran file saat selesai ---
+      onUploadComplete(finalUrl, false, fileToUpload.size);
       setStatus('success');
       setProgress(100);
 

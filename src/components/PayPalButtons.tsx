@@ -8,9 +8,11 @@ import { createOrderAction } from '@/app/actions/orderActions';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useTransition } from 'react';
+import { useAuth } from '@/context/AuthContext'; // <-- 1. Impor useAuth
 
 const PayPalWrapper = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
+  const { user } = useAuth(); // <-- 2. Dapatkan data pengguna
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const payPalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
@@ -40,21 +42,25 @@ const PayPalWrapper = () => {
         return; 
       }
       
-      // ✅ PERBAIKAN FINAL: Simpan ID yang sudah divalidasi ke dalam konstanta baru.
       const capturedOrderId = details.id;
 
       startTransition(async () => {
+        // --- 3. Pastikan user ada sebelum melanjutkan ---
+        if (!user) {
+            toast.error("You must be logged in to complete the purchase.");
+            return;
+        }
+
         toast.loading('Processing your order...');
         
-        // Gunakan konstanta `capturedOrderId` di sini. TypeScript sekarang 100% yakin
-        // bahwa nilainya adalah string.
         const transactionDetails = {
           orderId: capturedOrderId,
           payerEmail: details.payer?.email_address ?? 'email-not-provided',
           payerName: `${details.payer?.name?.given_name ?? 'Guest'} ${details.payer?.name?.surname ?? ''}`.trim(),
         };
         
-        const result = await createOrderAction(cartItems, transactionDetails);
+        // --- 4. Kirim user.id sebagai argumen baru ---
+        const result = await createOrderAction(cartItems, transactionDetails, user.id);
         
         toast.dismiss();
 

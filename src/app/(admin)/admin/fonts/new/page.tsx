@@ -1,7 +1,7 @@
 // src/app/(admin)/admin/fonts/new/page.tsx
 'use client';
 
-import { useState, useEffect, useTransition, useMemo, useRef, useCallback } from 'react'; // Import useCallback
+import { useState, useEffect, useTransition, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Database } from '@/lib/database.types';
 import opentype from 'opentype.js';
@@ -9,58 +9,10 @@ import toast from 'react-hot-toast';
 import { addFontAction } from '@/app/actions/fontActions';
 import FileUploadProgress from '@/components/admin/FileUploadProgress';
 import GalleryImageUploader from '@/components/admin/GalleryImageUploader';
+import TagInput from '@/components/admin/TagInput';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
-
-const TagInput = ({ name, label, tags, setTags }: { name: string, label: string, tags: string[], setTags: (tags: string[]) => void }) => {
-  const [inputValue, setInputValue] = useState('');
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      
-      const newTags = inputValue
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0 && !tags.includes(tag));
-
-      if (newTags.length > 0) {
-        setTags([...tags, ...newTags]);
-      }
-      
-      setInputValue('');
-    }
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
-  };
-  
-  return (
-    <div>
-       <label className="font-medium">{label}</label>
-       {tags.map(tag => <input key={tag} type="hidden" name={name} value={tag} />)}
-      <div className="flex flex-wrap gap-2 mb-2 mt-1 border rounded-md p-2">
-        {tags.map(tag => (
-          <span key={tag} className="bg-gray-200 text-gray-700 text-sm font-medium px-2 py-1 rounded-full flex items-center">
-            {tag}
-            <button type="button" onClick={() => removeTag(tag)} className="ml-2 text-red-500 hover:text-red-700">&times;</button>
-          </span>
-        ))}
-      </div>
-      <input 
-        type="text" 
-        value={inputValue} 
-        onChange={(e) => setInputValue(e.target.value)} 
-        onKeyDown={handleKeyDown} 
-        placeholder={`Add ${label.toLowerCase()} (pisahkan dengan koma)`} 
-        className="w-full p-2 border rounded-md"
-      />
-    </div>
-  );
-};
-
 
 export default function AddNewFontPage() {
   const [tags, setTags] = useState<string[]>([]);
@@ -106,15 +58,18 @@ export default function AddNewFontPage() {
     fetchDropdownData();
   }, []);
 
-  // PERBAIKAN: Menggunakan useCallback untuk menstabilkan fungsi
-  const handleUploadComplete = useCallback((fieldName: string, url: string | null, isUploading: boolean) => {
+  const handleUploadComplete = useCallback((fieldName: string, url: string | null, isUploading: boolean, size?: number) => {
     if(url !== null) {
       setUploadedFileUrls(prev => ({ ...prev, [fieldName]: url }));
     }
     setUploadingStatus(prev => ({...prev, [fieldName]: isUploading }));
+
+    if (fieldName === 'downloadable_file_url' && size) {
+        const sizeInMB = (size / (1024 * 1024)).toFixed(2);
+        setFileSize(`${sizeInMB} MB`);
+    }
   }, []);
   
-  // PERBAIKAN: Menggunakan useCallback untuk menstabilkan fungsi
   const handleGalleryUploadChange = useCallback((urls: string[], isUploading: boolean) => {
     setGalleryImageUrls(urls);
     setIsGalleryUploading(isUploading);
@@ -135,8 +90,9 @@ export default function AddNewFontPage() {
         }
         setGlyphString(glyphs);
         toast.success('Glyphs scanned successfully!');
-    } catch(err) {
-        toast.error('Failed to scan glyphs from font file.');
+    } catch(err: unknown) {
+        const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+        toast.error(`Failed to scan glyphs: ${message}`);
     }
   };
   
@@ -194,8 +150,9 @@ export default function AddNewFontPage() {
                         <div><label>Corporate Price</label><input type="number" step="0.01" name="price_corporate" defaultValue={0} className="w-full p-2 border rounded-md mt-1" required /></div>
                     </div>
                 </div>
-                <TagInput name="product_information" label="Product Information" tags={productInfo} setTags={setProductInfo} />
-                <TagInput name="styles" label="Styles" tags={styles} setTags={setStyles} />
+                {/* --- PERUBAHAN DI SINI: Placeholder diubah --- */}
+                <TagInput name="product_information" label="Product Information" tags={productInfo} setTags={setProductInfo} placeholder="Add features (separate with commas)..."/>
+                <TagInput name="styles" label="Styles" tags={styles} setTags={setStyles} placeholder="Add styles (separate with commas)..."/>
             </div>
             
             <div className="space-y-6 bg-white p-6 rounded-lg shadow-md">
@@ -215,16 +172,17 @@ export default function AddNewFontPage() {
                     <label className="font-medium">Partner (Optional)</label>
                     <select name="partner_id" className="w-full p-2 border rounded-md mt-1"><option value="">None (Operatype)</option>{partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
                 </div>
-                <TagInput name="tags" label="Tags" tags={tags} setTags={setTags} />
+                <TagInput name="tags" label="Tags" tags={tags} setTags={setTags} placeholder="Add tags (separate with commas)..."/>
             </div>
         </div>
         
         <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Files & Images</h3>
-            <p className="text-sm text-gray-500 mb-4 -mt-2">Unggah file akan dimulai secara otomatis. Tombol "Save Font" akan aktif setelah semua file wajib (bertanda *) selesai diunggah.</p>
+            {/* --- PERUBAHAN DI SINI: Teks penjelasan diubah --- */}
+            <p className="text-sm text-gray-500 mb-4 -mt-2">File upload will start automatically. The &quot;Save Font&quot; button will be enabled after all required files (*) are uploaded.</p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <FileUploadProgress 
-                    label="Main Preview Image *" 
+                    label={<>Main Preview Image {'*'}</>} 
                     bucket="font_images" 
                     fileTypes={{ 'image/*': ['.jpeg', '.png', '.jpg', '.webp'] }} 
                     onUploadComplete={handleUploadComplete.bind(null, 'main_image_url')}
@@ -235,18 +193,18 @@ export default function AddNewFontPage() {
             <div className="mt-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                      <FileUploadProgress 
-                        label="Downloadable Font File (ZIP) *" 
+                        label={<>Downloadable Font File (ZIP) {'*'}</>}
                         bucket="downloadable-files" 
                         fileTypes={{ 'application/zip': ['.zip'], 'application/x-zip-compressed': ['.zip'] }} 
                         onUploadComplete={handleUploadComplete.bind(null, 'downloadable_file_url')}
                         isPublic={false}
                     />
                      <FileUploadProgress 
-                        label="Font Display File (Regular) *" 
+                        label={<>Font Display File (Regular) {'*'}</>} 
                         bucket="display-fonts" 
                         fileTypes={{ 'font/otf': ['.otf'], 'font/ttf': ['.ttf'] }} 
-                        onUploadComplete={(url, isUploading) => {
-                            handleUploadComplete('display_font_regular_url', url, isUploading);
+                        onUploadComplete={(url, isUploading, size) => {
+                            handleUploadComplete('display_font_regular_url', url, isUploading, size);
                             if (url) scanGlyphs(url);
                         }}
                         isPublic={true}

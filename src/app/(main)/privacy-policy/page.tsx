@@ -1,8 +1,17 @@
 // src/app/(main)/privacy-policy/page.tsx
 import React from 'react';
+import type { Metadata } from 'next';
+
 export const revalidate = 86400; // 1 hari
 
+// --- TAMBAHAN METADATA ---
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description: 'At Operatype, we are committed to protecting your privacy. This policy outlines the types of information we collect, how it is used, and the steps we take to safeguard your data.',
+};
+
 const PolicySection = ({ title, children }: { title: string, children: React.ReactNode }) => (
+// ... (sisa kode komponen tetap sama)
   <section>
     <h2 className="text-2xl font-medium text-brand-orange">{title}</h2>
     <div className="mt-3 space-y-4 font-light text-brand-black text-opacity-80">
@@ -24,7 +33,6 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="bg-brand-white">
       <div className="container mx-auto px-4 py-16">
-        {/* Header Halaman */}
         <div className="text-center mb-16 max-w-5xl mx-auto">
           <h1 className="text-5xl font-medium text-brand-black">Privacy Policy</h1>
           <div className="w-20 h-[3px] bg-brand-orange mx-auto my-6"></div>
@@ -34,7 +42,6 @@ export default function PrivacyPolicyPage() {
           </p>
         </div>
 
-        {/* Isi Konten */}
         <div className="space-y-8">
           <PolicySection title="1. Information We Collect">
             <p>We collect two types of information when you visit or use our Website:</p>

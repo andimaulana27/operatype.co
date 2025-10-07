@@ -1,7 +1,8 @@
 // src/app/(main)/fonts/[slug]/page.tsx
 export const revalidate = 3600;
 
-import dynamic from 'next/dynamic'; // 1. Impor `dynamic` dari Next.js
+import { Metadata } from 'next';
+import dynamic from 'next/dynamic';
 import { supabase } from "@/lib/supabaseClient";
 import { notFound } from "next/navigation";
 import Link from 'next/link';
@@ -14,8 +15,6 @@ import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
 import { FontWithDetailsForCard } from "@/components/ProductCard";
 
-// 2. Impor komponen-komponen ini secara dinamis
-// ssr: false berarti komponen ini hanya akan dirender di sisi klien
 const TypeTester = dynamic(() => import('@/components/TypeTester'), { ssr: false });
 const GlyphViewer = dynamic(() => import('@/components/GlyphViewer'), { ssr: false });
 
@@ -25,6 +24,68 @@ type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
   categories: { name: string } | null;
   font_discounts: { discounts: Discount | null }[];
 };
+
+type Props = {
+  params: { slug: string };
+};
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = params;
+
+  // --- PERBAIKAN 1: Tambahkan 'main_image_url' ke dalam query ---
+  const { data: font } = await supabase
+    .from('fonts')
+    .select('name, description, tags, main_image_url, categories(name)')
+    .eq('slug', slug)
+    .single();
+
+  if (!font) {
+    return {
+      title: 'Font Not Found | Operatype',
+      description: 'The font you are looking for could not be found.',
+    };
+  }
+
+  const shortDescription = font.description ? font.description.split('.')[0] + '.' : 'Discover a new high-quality font from Operatype.';
+
+  const keywords = [
+    font.name,
+    `${font.name} font`,
+    // --- PERBAIKAN 2: Akses nama kategori dari array ---
+    font.categories?.[0]?.name,
+    ...(Array.isArray(font.tags) ? (font.tags as string[]) : []),
+    'script font',
+    'display font',
+    'typography',
+    'operatype',
+  ].filter(Boolean);
+
+  return {
+    title: `${font.name} Font | Operatype`,
+    description: shortDescription,
+    keywords: keywords.join(', '),
+    // --- PERBAIKAN 3: Tambahkan metadata Open Graph (untuk media sosial) dan Twitter ---
+    openGraph: {
+        title: `${font.name} Font | Operatype`,
+        description: shortDescription,
+        images: [
+            {
+                url: font.main_image_url, // URL gambar utama
+                width: 1200,
+                height: 630,
+                alt: `${font.name} Font Preview`,
+            },
+        ],
+        type: 'website',
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: `${font.name} Font | Operatype`,
+        description: shortDescription,
+        images: [font.main_image_url], // URL gambar utama untuk Twitter Card
+    },
+  };
+}
 
 async function getFontBySlug(slug: string): Promise<FontDetail | null> {
   const { data, error } = await supabase
@@ -116,7 +177,6 @@ export default async function FontDetailPage({
               mainImage={font.main_image_url}
               galleryImages={Array.isArray(font.gallery_image_urls) ? font.gallery_image_urls as string[] : []}
             />
-            {/* 3. Komponen-komponen ini sekarang akan di-lazy load */}
             <TypeTester 
               fontFamilyRegular={dynamicFontFamilyRegular}
               fontFamilyItalic={font.display_font_italic_url ? dynamicFontFamilyItalic : undefined}

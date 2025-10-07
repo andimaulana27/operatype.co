@@ -1,10 +1,18 @@
 // src/app/(main)/terms-of-service/page.tsx
 import Link from 'next/link';
 import React from 'react';
+import type { Metadata } from 'next';
+
 export const revalidate = 86400; // 1 hari
 
-// Komponen kecil untuk setiap poin agar lebih rapi
+// --- TAMBAHAN METADATA ---
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description: 'Please read our Terms of Service carefully before using the Operatype website or purchasing any products. Your access and use are conditioned upon your acceptance of these terms.',
+};
+
 const TermSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
+// ... (sisa kode komponen tetap sama)
   <section>
     <h2 className="text-2xl font-medium text-brand-orange">{title}</h2>
     <div className="mt-3 space-y-4 font-light text-brand-black text-opacity-80">
@@ -17,10 +25,7 @@ export default function TermsOfServicePage() {
   return (
     <div className="bg-brand-white">
       <div className="container mx-auto px-4 py-16">
-        {/* ==================== PERUBAHAN DI SINI ==================== */}
-        {/* Lebar maksimum diubah dari 4xl menjadi 5xl agar sub-headline bisa menjadi 2 baris */}
         <div className="text-center mb-16 max-w-5xl mx-auto">
-        {/* ========================================================== */}
           <h1 className="text-5xl font-medium text-brand-black">Terms of Service</h1>
           <div className="w-20 h-[3px] bg-brand-orange mx-auto my-6"></div>
           <p className="text-sm text-brand-gray-1">Effective Date: July 12, 2025</p>
@@ -29,7 +34,6 @@ export default function TermsOfServicePage() {
           </p>
         </div>
 
-        {/* Isi Konten */}
         <div className="space-y-8">
           <TermSection title="1. Acceptance of Terms">
             <p>

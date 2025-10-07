@@ -1,8 +1,6 @@
 // src/app/actions/orderActions.ts
 'use server';
 
-import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { CartItem } from '@/context/CartContext';
 import { sendPurchaseConfirmationEmail, sendAdminSaleNotification } from './emailActions';
@@ -10,6 +8,7 @@ import { Database } from '@/lib/database.types';
 import { createClient } from '@supabase/supabase-js';
 import { InvoiceDetails } from './invoiceActions';
 import { generateInvoicePdf } from '@/lib/pdfGenerator';
+import { generateEulaPdf } from '@/lib/eulaGenerator';
 
 type OrderItemWithFont = Database['public']['Tables']['order_items']['Row'] & {
     fonts: { name: string | null; downloadable_file_url: string | null } | null;
@@ -23,12 +22,10 @@ type TransactionDetails = {
 
 export async function createOrderAction(
   cartItems: CartItem[],
-  transactionDetails: TransactionDetails
+  transactionDetails: TransactionDetails,
+  userId: string
 ) {
-  const supabase = createServerActionClient({ cookies });
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) return { error: 'You must be logged in to make a purchase.' };
+  if (!userId) return { error: 'You must be logged in to make a purchase.' };
   if (!cartItems || cartItems.length === 0) return { error: 'Your cart is empty.' };
   
   const supabaseAdmin = createClient<Database>(
@@ -38,22 +35,22 @@ export async function createOrderAction(
 
   try {
     const totalAmount = cartItems.reduce((sum, item) => sum + item.price, 0);
-    const invoiceId = `INV-${Date.now()}-${user.id.substring(0, 4)}`;
+    const invoiceId = `INV-${Date.now()}-${userId.substring(0, 4)}`;
 
-    const { data: purchaseData, error: purchaseError } = await supabase
+    const { data: purchaseData, error: purchaseError } = await supabaseAdmin
       .from('purchases').insert({
-        user_id: user.id, total_amount: totalAmount,
+        user_id: userId, total_amount: totalAmount,
         transaction_id: transactionDetails.orderId, invoice_id: invoiceId,
       }).select().single();
 
     if (purchaseError) throw new Error(`Purchase Error: ${purchaseError.message}`);
 
     const orderItemsToInsert = cartItems.map(item => ({
-      purchase_id: purchaseData.id, user_id: user.id, font_id: item.fontId,
+      purchase_id: purchaseData.id, user_id: userId, font_id: item.fontId,
       amount: item.price, license_type: item.license, user_count: item.users,
     }));
 
-    const { data: insertedItems, error: itemsError } = await supabase
+    const { data: insertedItems, error: itemsError } = await supabaseAdmin
       .from('order_items').insert(orderItemsToInsert)
       .select('*, fonts(name, downloadable_file_url)');
 
@@ -66,7 +63,7 @@ export async function createOrderAction(
             }
             const { data, error } = await supabaseAdmin.storage
                 .from('downloadable-files')
-                .createSignedUrl(item.fonts.downloadable_file_url, 3600 * 24 * 7); // Link berlaku 7 hari
+                .createSignedUrl(item.fonts.downloadable_file_url, 3600 * 24 * 7);
 
             if (error) {
                 console.error(`Error creating signed URL for ${item.fonts.name}:`, error);
@@ -76,9 +73,15 @@ export async function createOrderAction(
         })
     );
 
-    const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
-    const userDetails = { email: user.email!, full_name: profile?.full_name || transactionDetails.payerName };
+    const { data: profileData } = await supabaseAdmin.from('profiles').select('full_name, email').eq('id', userId).single();
     
+    // --- PERBAIKAN DI SINI ---
+    // Menggunakan email dari PayPal sebagai fallback jika email di profil tidak ada.
+    const userDetails = { 
+        email: profileData?.email || transactionDetails.payerEmail, 
+        full_name: profileData?.full_name || transactionDetails.payerName 
+    };
+
     const invoiceData: InvoiceDetails = {
         id: purchaseData.id, invoice_id: purchaseData.invoice_id, created_at: purchaseData.created_at,
         total_amount: purchaseData.total_amount, user: userDetails,
@@ -88,11 +91,18 @@ export async function createOrderAction(
         }))
     };
     
-    const invoicePdf = await generateInvoicePdf(invoiceData);
-    const emailOrderItems: OrderItemWithFont[] = insertedItems.map(item => ({...item, fonts: item.fonts as { name: string | null } | null}));
+    const [invoicePdfArrayBuffer, eulaPdfArrayBuffer] = await Promise.all([
+        generateInvoicePdf(invoiceData),
+        generateEulaPdf(invoiceData) 
+    ]);
+    
+    const invoicePdfBuffer = Buffer.from(invoicePdfArrayBuffer);
+    const eulaPdfBuffer = Buffer.from(eulaPdfArrayBuffer);
+    
+    const emailOrderItems = insertedItems as OrderItemWithFont[];
     
     const emailPromises = [
-      sendPurchaseConfirmationEmail(userDetails, emailOrderItems, transactionDetails, downloadLinks, invoicePdf),
+      sendPurchaseConfirmationEmail(userDetails, emailOrderItems, transactionDetails, downloadLinks, invoicePdfBuffer, eulaPdfBuffer),
       sendAdminSaleNotification(userDetails, emailOrderItems, transactionDetails)
     ];
 
@@ -109,12 +119,13 @@ export async function createOrderAction(
     return { success: 'Your order has been placed successfully! Please check your email.' };
 
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
     console.error("Create Order Action Error:", error);
     return { error: `An unexpected error occurred while processing your order: ${message}` };
   }
 }
 
+// ... sisa file tetap sama ...
 export async function getAdminOrdersAction(page: number, limit: number, searchTerm: string = '') {
   const supabaseAdmin = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -148,7 +159,7 @@ export async function getAdminOrdersAction(page: number, limit: number, searchTe
     return { data, count, error: null };
 
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
     console.error("Admin order fetch error:", message);
     return { data: [], count: 0, error: message };
   }

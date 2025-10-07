@@ -8,11 +8,16 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import toast from 'react-hot-toast';
 
-// Terima invoice sebagai prop
+// --- PERBAIKAN 1: Buat interface baru untuk type safety ---
+interface jsPDFWithAutoTable extends jsPDF {
+  lastAutoTable: {
+    finalY: number;
+  };
+}
+
 export default function InvoiceDisplay({ invoice }: { invoice: NonNullable<InvoiceDetails> }) {
   
   const handleDownloadPdf = async () => {
-    // Logika download PDF tidak berubah, karena ini memang harus berjalan di sisi klien.
     toast.loading('Generating PDF...');
     
     const doc = new jsPDF();
@@ -99,7 +104,8 @@ export default function InvoiceDisplay({ invoice }: { invoice: NonNullable<Invoi
       margin: { left: margin, right: margin }
     });
     
-    let finalY = (doc as any).lastAutoTable.finalY;
+    // --- PERBAIKAN 2: Gunakan `const` dan interface yang baru ---
+    const finalY = (doc as jsPDFWithAutoTable).lastAutoTable.finalY;
     
     doc.setFillColor(245, 245, 245);
     doc.rect(pageW - margin - 80, finalY + 8, 80, 12, 'F');
@@ -132,7 +138,6 @@ export default function InvoiceDisplay({ invoice }: { invoice: NonNullable<Invoi
 
   return (
     <div className="bg-white max-w-4xl mx-auto my-12 p-8 shadow-lg rounded-lg border">
-      {/* Tampilan JSX tidak berubah */}
       <div className="flex justify-between items-start pb-6 border-b">
         <div>
           <Image src="/logo-operatype.png" alt="Operatype.co Logo" width={180} height={48} />
@@ -189,13 +194,24 @@ export default function InvoiceDisplay({ invoice }: { invoice: NonNullable<Invoi
       
       <div className="flex justify-between items-center mt-12 border-t pt-6">
         <p className="text-sm text-gray-500">Thank you for your business!</p>
-        <button
-          onClick={handleDownloadPdf}
-          className="flex items-center gap-2 bg-brand-orange text-white font-medium py-2 px-5 rounded-full hover:bg-brand-orange-hover transition-colors"
-        >
-          <DownloadIcon className="w-5 h-5" />
-          Download PDF
-        </button>
+        <div className="flex items-center gap-4">
+          <a
+            href={`/account/orders/${invoice.invoice_id}/eula`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 bg-gray-600 text-white font-medium py-2 px-5 rounded-full hover:bg-gray-700 transition-colors"
+          >
+            <DownloadIcon className="w-5 h-5" />
+            Download EULA
+          </a>
+          <button
+            onClick={handleDownloadPdf}
+            className="flex items-center gap-2 bg-brand-orange text-white font-medium py-2 px-5 rounded-full hover:bg-brand-orange-hover transition-colors"
+          >
+            <DownloadIcon className="w-5 h-5" />
+            Download Invoice
+          </button>
+        </div>
       </div>
     </div>
   );

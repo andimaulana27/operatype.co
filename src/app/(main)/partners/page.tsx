@@ -1,8 +1,4 @@
 // src/app/(main)/partners/page.tsx
-
-// ==================== PERBAIKAN KINERJA ====================
-// Ubah revalidate dari 0 menjadi 3600 (1 jam).
-// Halaman ini sekarang akan menjadi statis dan dimuat secara instan.
 export const revalidate = 3600;
 
 import Link from 'next/link';
@@ -10,9 +6,16 @@ import Image from 'next/image';
 import SectionTitle from '@/components/SectionTitle';
 import { supabase } from '@/lib/supabaseClient';
 import { Database } from '@/lib/database.types';
+import type { Metadata } from 'next';
+
+// --- TAMBAHAN METADATA ---
+export const metadata: Metadata = {
+  title: 'Our Partners',
+  description: 'Meet the talented designers and foundries we are proud to collaborate with at Operatype.',
+};
 
 type Partner = Database['public']['Tables']['partners']['Row'];
-
+// ... (sisa kode tetap sama)
 async function getPartners(): Promise<Partner[]> {
   const { data, error } = await supabase
     .from('partners')

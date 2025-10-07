@@ -1,20 +1,17 @@
 // src/lib/pdfGenerator.ts
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { InvoiceDetails } from "@/app/actions/invoiceActions"; // Kita gunakan lagi tipe data ini
-import fs from 'fs'; // <-- 1. Impor modul File System
-import path from 'path'; // <-- 2. Impor modul Path untuk menangani path file
+import { InvoiceDetails } from "@/app/actions/invoiceActions";
+import fs from 'fs';
+import path from 'path';
 
-// ✅ PERBAIKAN 1: Buat interface untuk memperluas tipe jsPDF
 interface jsPDFWithAutoTable extends jsPDF {
   lastAutoTable: {
     finalY: number;
   };
 }
 
-
-// Fungsi ini akan membuat PDF dan mengembalikannya sebagai Buffer
-export async function generateInvoicePdf(invoice: InvoiceDetails): Promise<Buffer> {
+export async function generateInvoicePdf(invoice: InvoiceDetails): Promise<ArrayBuffer> {
   if (!invoice || !invoice.user) {
     throw new Error("Invalid invoice data provided.");
   }
@@ -24,19 +21,13 @@ export async function generateInvoicePdf(invoice: InvoiceDetails): Promise<Buffe
   const margin = 14;
   let currentY = margin;
 
-  // ==================== PERBAIKAN LOGO PDF DI SINI ====================
   try {
-    // 3. Tentukan path absolut ke file logo di dalam folder public
     const logoPath = path.resolve(process.cwd(), 'public/logo-operatype.png');
-    // 4. Baca file gambar sebagai buffer
     const logoBuffer = fs.readFileSync(logoPath);
-    // 5. Tambahkan gambar dari buffer ke dalam dokumen PDF
     doc.addImage(logoBuffer, 'PNG', margin, currentY, 50, 15);
   } catch (e) {
       console.error("Gagal memuat logo untuk PDF di server:", e);
-      // Jika gagal, proses pembuatan PDF tetap berjalan tanpa logo
   }
-  // ===================================================================
   
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -100,19 +91,20 @@ export async function generateInvoicePdf(invoice: InvoiceDetails): Promise<Buffe
     margin: { left: margin, right: margin }
   });
 
-  // ✅ PERBAIKAN 2: Gunakan tipe yang sudah dibuat, bukan `any`
+  // --- PERBAIKAN DI SINI: Mengubah 'const' kembali menjadi 'let' ---
   let finalY = (doc as jsPDFWithAutoTable).lastAutoTable.finalY;
   
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text("Total:", pageW - margin - 40, finalY + 15);
   doc.text(`$${invoice.total_amount?.toFixed(2) || "0.00"}`, pageW - margin, finalY + 15, { align: "right" });
+  
+  // Baris ini yang menyebabkan error, karena mencoba mengubah nilai `finalY`
   finalY += 30;
 
   doc.setFontSize(10);
   doc.setTextColor(150);
   doc.text("Thank you for your business!", margin, finalY);
 
-  // Mengembalikan PDF sebagai Buffer
-  return Buffer.from(doc.output("arraybuffer"));
+  return doc.output("arraybuffer");
 }

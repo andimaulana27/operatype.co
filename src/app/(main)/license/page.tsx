@@ -1,10 +1,16 @@
 // src/app/(main)/license/page.tsx
-
 export const revalidate = 86400; // 1 hari
 
 import React from 'react';
 import Link from 'next/link';
 import { CheckCircle, XCircle, Star, Check, X } from 'lucide-react';
+import type { Metadata } from 'next';
+
+// --- TAMBAHAN METADATA ---
+export const metadata: Metadata = {
+  title: 'Font Licensing',
+  description: 'Understand our simple and clear font licenses. Compare Desktop, Standard Commercial, Extended, and Corporate licenses to find the right fit for your project.',
+};
 
 const comparisonFeatures = [
   {
@@ -33,6 +39,7 @@ const comparisonFeatures = [
   }
 ];
 
+// ... (sisa kode komponen tetap sama)
 const FeatureCell = ({ value }: { value: string | boolean | undefined }) => {
     if (typeof value === 'boolean') {
         return value ? <Check className="w-6 h-6 text-green-600 mx-auto" /> : <X className="w-6 h-6 text-red-500 mx-auto" />;
@@ -58,7 +65,7 @@ const LicenseComparisonTable = () => (
             <tr className="bg-gray-100">
               <td colSpan={5} className="px-6 py-3 text-sm font-bold text-brand-black">{group.category}</td>
             </tr>
-            {group.features.map((feature) => ( // 'index' dihapus dari sini
+            {group.features.map((feature) => (
               <tr key={feature.name} className="border-b border-gray-200 last:border-b-0 hover:bg-orange-50/20">
                 <td className="pl-10 pr-6 py-4 font-medium text-gray-800">{feature.name}</td>
                 <td className="px-6 py-4 text-center"><FeatureCell value={feature.desktop} /></td>

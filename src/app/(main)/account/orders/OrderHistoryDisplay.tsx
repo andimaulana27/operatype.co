@@ -4,7 +4,7 @@
 import { useRouter } from 'next/navigation';
 import AccountPagination from '@/components/AccountPagination';
 import type { Order } from './page';
-import Link from 'next/link'; // <-- Impor Link
+import Link from 'next/link';
 
 type OrderHistoryDisplayProps = {
   orders: Order[];
@@ -31,7 +31,7 @@ export default function OrderHistoryDisplay({ orders, totalPages, currentPage }:
                 <th scope="col" className="px-6 py-3">Invoice ID</th>
                 <th scope="col" className="px-6 py-3">Products</th>
                 <th scope="col" className="px-6 py-3">Amount</th>
-                <th scope="col" className="px-6 py-3">Invoice</th>
+                <th scope="col" className="px-6 py-3 text-center">Actions</th> 
               </tr>
             </thead>
             <tbody>
@@ -51,16 +51,26 @@ export default function OrderHistoryDisplay({ orders, totalPages, currentPage }:
                         .join(', ') || 'N/A'}
                     </td>
                     <td className="px-6 py-4">${order.total_amount?.toFixed(2) || '0.00'}</td>
-                    <td className="px-6 py-4">
-                      {/* ==================== PERBAIKAN DI SINI ==================== */}
-                      {/* Mengubah <a> menjadi <Link> yang mengarah ke halaman dinamis */}
-                      <Link 
-                        href={`/account/orders/${order.invoice_id}`} 
-                        className="font-medium text-brand-orange hover:underline"
-                      >
-                        View
-                      </Link>
-                      {/* ========================================================== */}
+                    <td className="px-6 py-4 text-center">
+                      {/* --- PERUBAHAN DI SINI --- */}
+                      <div className="flex justify-center items-center gap-4">
+                        <Link 
+                          href={`/account/orders/${order.invoice_id}`} 
+                          className="font-medium text-brand-orange hover:underline"
+                        >
+                          Invoice
+                        </Link>
+                        <span className="text-gray-300">|</span>
+                        <a 
+                          href={`/account/orders/${order.invoice_id}/eula`}
+                          className="font-medium text-brand-orange hover:underline"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          EULA
+                        </a>
+                      </div>
+                      {/* ------------------------- */}
                     </td>
                   </tr>
                 ))

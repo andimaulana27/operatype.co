@@ -36,7 +36,7 @@ type FontWithDetails = FontRow & {
   font_discounts: { discounts: Discount | null }[];
 };
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 25;
 
 // Semua komponen Modal (Delete, DiscountForm, dll) tidak perlu diubah.
 // ... (Kode komponen Modal tetap sama seperti sebelumnya)

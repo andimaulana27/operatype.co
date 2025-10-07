@@ -5,6 +5,13 @@ export const revalidate = 86400; // 1 hari
 
 import Image from 'next/image';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+
+// --- TAMBAHAN METADATA ---
+export const metadata: Metadata = {
+  title: 'About Us',
+  description: 'Learn the story behind Operatype, our passion for precision, and our mission to create high-quality, flawless script fonts for creators.',
+};
 
 export default function AboutPage() {
   return (

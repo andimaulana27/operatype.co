@@ -1,21 +1,43 @@
 // src/app/(main)/partners/[slug]/page.tsx
-
 export const revalidate = 3600;
 
 import { supabase } from '@/lib/supabaseClient';
 import { notFound } from 'next/navigation';
-// import { Database } from '@/lib/database.types'; // Dihapus
 import SectionTitle from '@/components/SectionTitle';
 import SearchInput from '@/components/SearchInput';
 import FilterDropdown from '@/components/FilterDropdown';
 import ProductCard, { FontWithDetailsForCard } from '@/components/ProductCard';
 import Pagination from '@/components/Pagination';
+import type { Metadata } from 'next';
 
+// --- TAMBAHAN METADATA DINAMIS ---
+type Props = {
+  params: { slug: string };
+};
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = params;
+  const { data: partner } = await supabase
+    .from('partners')
+    .select('name, subheadline')
+    .eq('slug', slug)
+    .single();
+
+  if (!partner) {
+    return { title: 'Partner Not Found' };
+  }
+
+  return {
+    title: `Fonts by ${partner.name}`,
+    description: partner.subheadline || `Browse the unique font collection from our partner, ${partner.name}, on Operatype.`,
+  };
+}
+
+const ITEMS_PER_PAGE = 24;
+// ... (sisa kode tetap sama)
 type FontFromRPC = FontWithDetailsForCard & {
   total_count: number;
 };
-
-const ITEMS_PER_PAGE = 24;
 
 export default async function PartnerDetailPage({
   params,

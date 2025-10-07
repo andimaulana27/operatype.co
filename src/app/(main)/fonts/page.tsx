@@ -1,6 +1,5 @@
 // src/app/(main)/fonts/page.tsx
 
-// Cache tetap penting untuk performa instan bagi pengunjung berulang
 export const revalidate = 3600;
 
 import ProductCard, { FontWithDetailsForCard } from '@/components/ProductCard';
@@ -8,9 +7,16 @@ import { supabase } from '@/lib/supabaseClient';
 import Pagination from '@/components/Pagination';
 import FilterDropdown from '@/components/FilterDropdown';
 import SearchInput from '@/components/SearchInput';
+import type { Metadata } from 'next';
+
+// --- TAMBAHAN METADATA ---
+export const metadata: Metadata = {
+  title: 'All Fonts',
+  description: 'Browse, filter, and discover the perfect high-quality script and display font from our collection for your next creative masterpiece.',
+};
 
 const ITEMS_PER_PAGE = 24;
-
+// ... (sisa kode tetap sama)
 type FontFromRPC = FontWithDetailsForCard & {
   total_count: number;
 };
@@ -87,12 +93,10 @@ export default async function AllFontsPage({
         {paginatedFonts.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {/* PERUBAHAN DI SINI: Menambahkan prop `priority` pada ProductCard */}
               {paginatedFonts.map((font, index) => (
                 <ProductCard 
                   key={font.id} 
                   font={font} 
-                  // Prioritaskan 4 gambar pertama di halaman pertama
                   priority={currentPage === 1 && index < 4} 
                 />
               ))}

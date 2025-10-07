@@ -10,6 +10,7 @@ import { updateFontAction } from '@/app/actions/fontActions';
 import FileUploadProgress from '@/components/admin/FileUploadProgress';
 import GalleryImageUploader from '@/components/admin/GalleryImageUploader';
 import opentype from 'opentype.js';
+import TagInput from '@/components/admin/TagInput';
 
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
@@ -32,37 +33,6 @@ type FontFormData = {
   status: 'Published' | 'Draft';
   category_id: string;
   partner_id: string | null;
-};
-
-const TagInput = ({ label, tags, setTags }: { label: string, tags: string[], setTags: (tags: string[]) => void }) => {
-  const [inputValue, setInputValue] = useState('');
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      const newTag = inputValue.trim();
-      if (newTag && !tags.includes(newTag)) {
-        setTags([...tags, newTag]);
-      }
-      setInputValue('');
-    }
-  };
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
-  };
-  return (
-    <div>
-       <label className="font-medium">{label}</label>
-      <div className="flex flex-wrap gap-2 mb-2 mt-1 border rounded-md p-2">
-        {tags.map(tag => (
-          <span key={tag} className="bg-gray-200 text-gray-700 text-sm font-medium px-2 py-1 rounded-full flex items-center">
-            {tag}
-            <button type="button" onClick={() => removeTag(tag)} className="ml-2 text-red-500 hover:text-red-700">&times;</button>
-          </span>
-        ))}
-      </div>
-      <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={handleKeyDown} placeholder={`Add ${label.toLowerCase()} (press Enter)`} className="w-full p-2 border rounded-md"/>
-    </div>
-  );
 };
 
 export default function EditFontPage() {
@@ -100,7 +70,6 @@ export default function EditFontPage() {
         }
         setFormData(prev => ({ ...prev, glyph_string: glyphs }));
         toast.success('Glyphs re-scanned successfully!');
-    // <-- PERBAIKAN ESLINT: Mengganti (err) dengan (e: unknown) untuk type safety
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : 'An unknown error occurred.';
         toast.error(`Failed to scan glyphs: ${message}`);
@@ -109,16 +78,13 @@ export default function EditFontPage() {
 
   useEffect(() => {
     if (!fontId) return;
-
     const fetchInitialData = async () => {
       setIsLoading(true);
       const { data: fontData, error } = await supabase.from('fonts').select(`*`).eq('id', fontId).single();
-
       if (error || !fontData) {
         toast.error('Failed to fetch font data: ' + error?.message);
         return;
       }
-      
       setFormData({
         name: fontData.name,
         slug: fontData.slug,
@@ -138,7 +104,6 @@ export default function EditFontPage() {
         category_id: fontData.category_id,
         partner_id: fontData.partner_id,
       });
-
       setFileUrls({
         main_image_url: fontData.main_image_url,
         downloadable_file_url: fontData.downloadable_file_url,
@@ -146,21 +111,22 @@ export default function EditFontPage() {
         display_font_italic_url: fontData.display_font_italic_url,
       });
       setGalleryImageUrls((fontData.gallery_image_urls as string[]) || []);
-
       const { data: categoriesData } = await supabase.from('categories').select('*');
       const { data: partnersData } = await supabase.from('partners').select('*');
       if (categoriesData) setCategories(categoriesData);
       if (partnersData) setPartners(partnersData);
-
       setIsLoading(false);
     };
-    
     fetchInitialData();
   }, [fontId]);
 
-  const handleUploadComplete = useCallback((fieldName: string, url: string | null, isUploading: boolean) => {
+  const handleUploadComplete = useCallback((fieldName: string, url: string | null, isUploading: boolean, size?: number) => {
     setFileUrls(prev => ({ ...prev, [fieldName]: url }));
     setUploadingStatus(prev => ({...prev, [fieldName]: isUploading }));
+    if (fieldName === 'downloadable_file_url' && size) {
+        const sizeInMB = (size / (1024 * 1024)).toFixed(2);
+        setFormData(prev => ({...prev, file_size: `${sizeInMB} MB`}));
+    }
   }, []);
   
   const handleGalleryUploadChange = useCallback((urls: string[], isUploading: boolean) => {
@@ -182,19 +148,21 @@ export default function EditFontPage() {
     }
   };
   
-  const handleSubmit = (formData: FormData) => {
+  const handleSubmit = (formDataToSubmit: FormData) => {
     if (isAnyFileUploading) {
         toast.error("Please wait for all uploads to finish.");
         return;
     }
     
+    formDataToSubmit.append('file_size', formData.file_size || '');
+    
     Object.entries(fileUrls).forEach(([key, value]) => {
-        formData.append(key, value || '');
+        formDataToSubmit.append(key, value || '');
     });
-    galleryImageUrls.forEach(url => formData.append('gallery_image_urls', url));
+    galleryImageUrls.forEach(url => formDataToSubmit.append('gallery_image_urls', url));
     
     startTransition(() => {
-        updateFontAction(fontId, formData);
+        updateFontAction(fontId, formDataToSubmit);
     });
   };
 
@@ -234,8 +202,8 @@ export default function EditFontPage() {
                         <div><label>Corporate Price</label><input type="number" step="0.01" name="price_corporate" value={formData.price_corporate || 0} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1" required /></div>
                     </div>
                 </div>
-                <TagInput label="Product Information" tags={formData.product_information as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, product_information: newTags }))} />
-                <TagInput label="Styles" tags={formData.styles as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, styles: newTags }))} />
+                <TagInput name="product_information" label="Product Information" tags={formData.product_information as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, product_information: newTags }))} />
+                <TagInput name="styles" label="Styles" tags={formData.styles as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, styles: newTags }))} />
             </div>
             
             <div className="space-y-6 bg-white p-6 rounded-lg shadow-md">
@@ -258,13 +226,14 @@ export default function EditFontPage() {
                     <label className="font-medium">Partner (Optional)</label>
                     <select name="partner_id" value={formData.partner_id || ''} onChange={handleInputChange} className="w-full p-2 border rounded-md mt-1"><option value="">None (Operatype)</option>{partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
                 </div>
-                <TagInput label="Tags" tags={formData.tags as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, tags: newTags }))} />
+                <TagInput name="tags" label="Tags" tags={formData.tags as string[] || []} setTags={(newTags) => setFormData(prev => ({ ...prev, tags: newTags }))} />
             </div>
         </div>
 
         <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Files & Images</h3>
-            <p className="text-sm text-gray-500 mb-4 -mt-2">File yang sudah ada akan diganti jika Anda mengunggah file baru. Tombol `Save` akan nonaktif selama proses unggah berlangsung.</p>
+            {/* --- PERUBAHAN DI SINI: Teks penjelasan diubah --- */}
+            <p className="text-sm text-gray-500 mb-4 -mt-2">Existing files will be replaced if you upload new ones. The &apos;Save&apos; button will be disabled during upload.</p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <FileUploadProgress 
                     label="Main Preview Image" 
@@ -293,8 +262,8 @@ export default function EditFontPage() {
                         label="Font Display File (Regular)" 
                         bucket="display-fonts" 
                         fileTypes={{ 'font/otf': ['.otf'], 'font/ttf': ['.ttf'] }} 
-                        onUploadComplete={(url, isUploading) => {
-                            handleUploadComplete('display_font_regular_url', url, isUploading);
+                        onUploadComplete={(url, isUploading, size) => {
+                            handleUploadComplete('display_font_regular_url', url, isUploading, size);
                             if (url) {
                                 scanGlyphs(url);
                             }
@@ -333,7 +302,6 @@ export default function EditFontPage() {
                     disabled={isPending || isAnyFileUploading} 
                     className="bg-brand-orange text-white font-medium py-3 px-8 rounded-lg hover:bg-brand-orange-hover disabled:opacity-50 disabled:cursor-not-allowed min-w-[150px] text-center"
                 >
-                    {/* <-- PERBAIKAN ESLINT: Mengganti ' dengan " untuk string literals */}
                     {isPending ? "Saving..." : isAnyFileUploading ? "Uploading..." : "Save Changes"}
                 </button>
             </div>
