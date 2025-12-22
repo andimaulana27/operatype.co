@@ -5,14 +5,15 @@ import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/lib/supabaseClient';
 import { UploadCloud, CheckCircle2, AlertCircle, X, Image as ImageIcon, File as FileIcon, FileArchive } from 'lucide-react';
+// 1. Import library compression
+import imageCompression from 'browser-image-compression';
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
 type FileUploadProgressProps = {
-  label: React.ReactNode; // Ubah tipe dari string ke ReactNode
+  label: React.ReactNode;
   bucket: string;
   fileTypes: { [key: string]: string[] };
-  // --- PERBAIKAN 1: Tambahkan parameter fileSize ---
   onUploadComplete: (filePath: string | null, isUploading: boolean, fileSize?: number) => void;
   isPublic?: boolean;
   existingFileUrl?: string | null;
@@ -24,7 +25,6 @@ const getFileIcon = (fileType?: string) => {
     if (fileType.includes('zip')) return <FileArchive className="w-8 h-8 text-gray-400" />;
     return <FileIcon className="w-8 h-8 text-gray-400" />;
 };
-
 
 export default function FileUploadProgress({
   label,
@@ -47,7 +47,6 @@ export default function FileUploadProgress({
     }
   }, [existingFileUrl]);
 
-
   const uploadFile = useCallback(async (fileToUpload: File) => {
     setStatus('uploading');
     setProgress(0);
@@ -55,13 +54,44 @@ export default function FileUploadProgress({
     onUploadComplete(null, true);
 
     try {
-      const filePath = `${Date.now()}_${fileToUpload.name}`;
+      let finalFile = fileToUpload;
+      let finalFileName = fileToUpload.name;
+      let contentType = fileToUpload.type;
+
+      // --- PERBAIKAN: Logika Kompresi Cerdas ---
+      // Hanya kompres jika tipe file adalah GAMBAR. 
+      // Jangan kompres ZIP atau Font files (OTF/TTF).
+      if (fileToUpload.type.startsWith('image/')) {
+         console.log('Compressing image...');
+         const options = {
+           maxSizeMB: 1,           // Maksimal 1MB
+           maxWidthOrHeight: 1920, // HD Quality
+           useWebWorker: true,
+           fileType: 'image/webp'  // Ubah ke WebP
+         };
+         
+         try {
+           finalFile = await imageCompression(fileToUpload, options);
+           // Ubah ekstensi nama file ke .webp
+           const fileNameWithoutExt = fileToUpload.name.split('.').slice(0, -1).join('.');
+           finalFileName = `${fileNameWithoutExt}.webp`;
+           contentType = 'image/webp';
+           console.log(`Compressed: ${(finalFile.size / 1024).toFixed(2)} KB`);
+         } catch (compError) {
+           console.error("Compression failed, uploading original file.", compError);
+           // Jika kompresi gagal, tetap lanjut upload file asli
+         }
+      }
+
+      // Gunakan nama file baru (jika dikompresi) dan timestamp
+      const filePath = `${Date.now()}_${finalFileName}`;
       
       const { data, error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(filePath, fileToUpload, {
+        .upload(filePath, finalFile, {
           cacheControl: '3600',
           upsert: false,
+          contentType: contentType // Pastikan content-type sesuai (webp jika dikompres)
         });
 
       if (uploadError) throw uploadError;
@@ -72,8 +102,8 @@ export default function FileUploadProgress({
         finalUrl = publicUrlData.publicUrl;
       }
       
-      // --- PERBAIKAN 2: Kirim ukuran file saat selesai ---
-      onUploadComplete(finalUrl, false, fileToUpload.size);
+      // Kirim ukuran file final (yang mungkin sudah dikompres)
+      onUploadComplete(finalUrl, false, finalFile.size);
       setStatus('success');
       setProgress(100);
 
@@ -117,11 +147,19 @@ export default function FileUploadProgress({
   
   const getFileName = () => {
     if (file) return file.name;
+    // Jika file sudah ada di server, coba ambil nama bersihnya
     if (existingFileUrl && status === 'success') {
       try {
         const pathParts = existingFileUrl.split('/');
         const encodedName = pathParts[pathParts.length - 1];
-        return decodeURIComponent(encodedName).substring(encodedName.indexOf('_') + 1);
+        // Decode URI untuk menangani spasi/karakter khusus
+        const decodedName = decodeURIComponent(encodedName);
+        // Hapus timestamp prefix (angka_namafile)
+        const underscoreIndex = decodedName.indexOf('_');
+        if (underscoreIndex !== -1) {
+            return decodedName.substring(underscoreIndex + 1);
+        }
+        return decodedName;
       } catch {
         return 'Existing file';
       }

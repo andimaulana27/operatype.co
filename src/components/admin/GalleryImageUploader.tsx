@@ -7,12 +7,13 @@ import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
 import { UploadCloud, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+// 1. Import library compression
+import imageCompression from 'browser-image-compression';
 
 const MAX_FILES = 15;
 
 type UploadStatus = 'empty' | 'uploading' | 'success' | 'error';
 
-// PERBAIKAN: Menambahkan 'isInitial' untuk melacak URL awal
 interface ImageSlot {
   id: number;
   file?: File;
@@ -36,7 +37,6 @@ const GalleryImageUploader = ({ initialUrls = [], onUploadChange }: GalleryImage
       progress: 0,
       status: 'empty',
     }));
-    // PERBAIKAN: Menandai slot awal dengan `isInitial: true`
     initialUrls.slice(0, MAX_FILES).forEach((url, i) => {
       slots[i] = { ...slots[i], finalUrl: url, previewUrl: url, status: 'success', progress: 100, isInitial: true };
     });
@@ -49,19 +49,34 @@ const GalleryImageUploader = ({ initialUrls = [], onUploadChange }: GalleryImage
     onUploadChange(finalUrls, isUploading);
   }, [imageSlots, onUploadChange]);
 
-
   const uploadFile = useCallback(async (file: File, slotId: number) => {
+    // Set status awal uploading
     setImageSlots(prev => prev.map(slot => 
       slot.id === slotId ? { ...slot, file, previewUrl: URL.createObjectURL(file), status: 'uploading', progress: 0, isInitial: false } : slot
     ));
 
     try {
-      const filePath = `${Date.now()}_${file.name}`;
+      // 2. Konfigurasi opsi kompresi
+      const options = {
+        maxSizeMB: 1,          // Maksimal ukuran file 1MB
+        maxWidthOrHeight: 1920, // Maksimal lebar/tinggi 1920px (HD)
+        useWebWorker: true,     // Menggunakan web worker agar UI tidak freeze
+        fileType: 'image/webp'  // Konversi otomatis ke WebP
+      };
+
+      // 3. Proses kompresi
+      const compressedFile = await imageCompression(file, options);
       
+      // 4. Ubah nama file agar ekstensinya menjadi .webp
+      const fileNameWithoutExt = file.name.split('.').slice(0, -1).join('.');
+      const newFileName = `${Date.now()}_${fileNameWithoutExt}.webp`;
+
+      // Upload file yang SUDAH dikompresi ke Supabase
       const { data, error: uploadError } = await supabase.storage
         .from('font_images')
-        .upload(filePath, file, {
+        .upload(newFileName, compressedFile, { // Gunakan compressedFile, bukan file asli
           cacheControl: '3600',
+          contentType: 'image/webp', // Pastikan content-type diset ke webp
           upsert: false
         });
 
@@ -72,8 +87,12 @@ const GalleryImageUploader = ({ initialUrls = [], onUploadChange }: GalleryImage
       setImageSlots(prev => prev.map(slot => 
         slot.id === slotId ? { ...slot, finalUrl: publicUrlData.publicUrl, status: 'success', progress: 100 } : slot
       ));
-    } catch (e: unknown) { // PERBAIKAN: Menggunakan 'unknown' bukan 'any'
+      
+      toast.success(`Uploaded & Compressed: ${((file.size - compressedFile.size) / 1024).toFixed(0)}KB saved!`);
+
+    } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'An unknown error occurred.';
+      console.error(e);
       toast.error(`Upload failed for ${file.name}`);
       setImageSlots(prev => prev.map(slot => 
         slot.id === slotId ? { ...slot, status: 'error', error: message } : slot
@@ -98,12 +117,10 @@ const GalleryImageUploader = ({ initialUrls = [], onUploadChange }: GalleryImage
   
   const removeImage = (slotId: number) => {
       const slotToRemove = imageSlots.find(s => s.id === slotId);
-      // PERBAIKAN: Menggunakan `!slotToRemove.isInitial`
       if (slotToRemove?.previewUrl && !slotToRemove.isInitial) {
           URL.revokeObjectURL(slotToRemove.previewUrl);
       }
       
-      // PERBAIKAN: Mereset slot dengan objek yang sesuai tipe ImageSlot
       const resetSlot: ImageSlot = { id: slotId, progress: 0, status: 'empty', file: undefined, previewUrl: undefined, finalUrl: undefined, error: undefined };
       
       setImageSlots(prev => prev.map(slot =>
@@ -111,7 +128,6 @@ const GalleryImageUploader = ({ initialUrls = [], onUploadChange }: GalleryImage
       ).sort((a,b) => (a.status === 'empty' ? 1: -1) - (b.status === 'empty' ? 1: -1)));
   }
 
-  // Menentukan apakah ada slot kosong untuk mengaktifkan dropzone di container utama
   const hasEmptySlots = imageSlots.some(s => s.status === 'empty');
   
   const { getRootProps, getInputProps, isDragActive, open: openFileDialog } = useDropzone({
@@ -131,7 +147,6 @@ const GalleryImageUploader = ({ initialUrls = [], onUploadChange }: GalleryImage
                     key={slot.id}
                     slot={slot}
                     onRemove={removeImage}
-                    // Hanya izinkan klik untuk membuka dialog file jika slot kosong
                     onSlotClick={slot.status === 'empty' && hasEmptySlots ? openFileDialog : undefined}
                 />
             ))}
@@ -140,8 +155,6 @@ const GalleryImageUploader = ({ initialUrls = [], onUploadChange }: GalleryImage
   );
 };
 
-
-// Komponen internal untuk setiap slot gambar
 const Slot = ({ slot, onRemove, onSlotClick }: { slot: ImageSlot, onRemove: (id: number) => void, onSlotClick?: () => void }) => {
     
     if (slot.status === 'empty') {
@@ -172,7 +185,6 @@ const Slot = ({ slot, onRemove, onSlotClick }: { slot: ImageSlot, onRemove: (id:
 
             {slot.status === 'success' && (
                 <>
-                    {/* PERBAIKAN: Menambahkan indikator sukses */}
                     <CheckCircle2 className="absolute top-1 right-1 w-5 h-5 text-white bg-green-600 rounded-full p-0.5" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                         <button type='button' onClick={() => onRemove(slot.id)} className="p-2 bg-red-600/80 text-white rounded-full">

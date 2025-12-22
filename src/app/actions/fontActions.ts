@@ -4,11 +4,11 @@
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation'; // <-- 1. Import redirect
+import { redirect } from 'next/navigation';
 import { Database, Json } from '@/lib/database.types';
 import { createClient } from '@supabase/supabase-js';
 
-// Tipe-tipe yang ada tetap sama
+// Tipe-tipe database helper
 type DiscountInsert = Database['public']['Tables']['discounts']['Insert'];
 type DiscountUpdate = Partial<Database['public']['Tables']['discounts']['Update']>;
 type FileUrlsToDelete = {
@@ -65,11 +65,9 @@ export async function addFontAction(formData: FormData) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'An unknown error occurred.';
     console.error("Add Font Action Error: ", message);
-    // 2. Jika error, redirect kembali dengan pesan error
     return redirect(`/admin/fonts/new?error=${encodeURIComponent(message)}`);
   }
 
-  // 3. Jika berhasil, redirect dengan pesan sukses
   redirect('/admin/fonts?message=Font berhasil ditambahkan!');
 }
 
@@ -78,12 +76,10 @@ export async function updateFontAction(id: string, formData: FormData) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-  let slugForRedirect = String(formData.get('slug'));
 
   try {
     const name = String(formData.get('name'));
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    slugForRedirect = slug; // Update slug untuk redirect
     
     const updateData: Database['public']['Tables']['fonts']['Update'] = {
         name,
@@ -127,17 +123,12 @@ export async function updateFontAction(id: string, formData: FormData) {
 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'An unknown error occurred.';
-    // 4. Jika error, redirect kembali ke halaman edit dengan pesan error
     return redirect(`/admin/fonts/edit/${id}?error=${encodeURIComponent(message)}`);
   }
 
-  // 5. Jika berhasil, redirect dengan pesan sukses
   redirect('/admin/fonts?message=Font berhasil diperbarui!');
 }
 
-
-// ... (Sisa dari file fontActions.ts tetap sama, tidak perlu diubah)
-// ...
 export async function deleteFontAction(fontId: string, fileUrls: FileUrlsToDelete) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -208,6 +199,7 @@ export async function deleteFontAction(fontId: string, fileUrls: FileUrlsToDelet
     return { error: `Deletion failed: ${message}` };
   }
 }
+
 export async function updateFontStatusAction(
   fontId: string, 
   updates: { is_bestseller?: boolean }
@@ -229,6 +221,7 @@ export async function updateFontStatusAction(
     return { error: `Database error: ${message}` };
   }
 }
+
 export async function updateHomepageLayoutAction(
   featuredIds: string[],
   curatedIds: string[]
@@ -272,6 +265,7 @@ export async function updateHomepageLayoutAction(
     return { error: `Failed to save layout: ${message}` };
   }
 }
+
 export async function createDiscountAction(data: DiscountInsert) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -296,6 +290,7 @@ export async function createDiscountAction(data: DiscountInsert) {
     return { error: message };
   }
 }
+
 export async function deleteDiscountAction(discountId: string) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -326,6 +321,7 @@ export async function deleteDiscountAction(discountId: string) {
     return { error: message };
   }
 }
+
 export async function updateDiscountAction(discountId: string, updateData: DiscountUpdate) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -491,6 +487,55 @@ export async function getAvailableHomepageFontsAction(options: {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'An unknown error occurred.';
     console.error("Available homepage fonts fetch error:", message);
+    return { data: [], count: 0, error: message };
+  }
+}
+
+// ============================================
+// NEW FUNCTION FOR PUBLIC FONT LISTING & TAGS
+// ============================================
+export async function getPublicFontsAction(options: {
+  page: number;
+  limit: number;
+  search?: string;
+  tag?: string; 
+}) {
+  const { page, limit, search, tag } = options;
+
+  const supabaseAdmin = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    let query = supabaseAdmin
+      .from('fonts')
+      .select('*', { count: 'exact' })
+      .eq('status', 'Published');
+
+    if (search) {
+      query = query.ilike('name', `%${search}%`);
+    }
+
+    // Filter berdasarkan tag jika ada
+    if (tag) {
+      query = query.contains('tags', [tag]);
+    }
+
+    const start = (page - 1) * limit;
+    const end = start + limit - 1;
+    
+    query = query.order('created_at', { ascending: false }).range(start, end);
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+    
+    return { data, count, error: null };
+
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    console.error("Public fonts fetch error:", message);
     return { data: [], count: 0, error: message };
   }
 }

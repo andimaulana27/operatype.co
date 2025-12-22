@@ -32,7 +32,6 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = params;
 
-  // --- PERBAIKAN 1: Tambahkan 'main_image_url' ke dalam query ---
   const { data: font } = await supabase
     .from('fonts')
     .select('name, description, tags, main_image_url, categories(name)')
@@ -51,7 +50,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const keywords = [
     font.name,
     `${font.name} font`,
-    // --- PERBAIKAN 2: Akses nama kategori dari array ---
     font.categories?.[0]?.name,
     ...(Array.isArray(font.tags) ? (font.tags as string[]) : []),
     'script font',
@@ -64,13 +62,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${font.name} Font | Operatype`,
     description: shortDescription,
     keywords: keywords.join(', '),
-    // --- PERBAIKAN 3: Tambahkan metadata Open Graph (untuk media sosial) dan Twitter ---
     openGraph: {
         title: `${font.name} Font | Operatype`,
         description: shortDescription,
         images: [
             {
-                url: font.main_image_url, // URL gambar utama
+                url: font.main_image_url,
                 width: 1200,
                 height: 630,
                 alt: `${font.name} Font Preview`,
@@ -82,7 +79,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         card: 'summary_large_image',
         title: `${font.name} Font | Operatype`,
         description: shortDescription,
-        images: [font.main_image_url], // URL gambar utama untuk Twitter Card
+        images: [font.main_image_url],
     },
   };
 }
@@ -191,9 +188,21 @@ export default async function FontDetailPage({
 
             <div className="mt-12">
                 <SectionHeader title="Tags" />
-                <p className="font-light text-brand-black leading-relaxed">
-                  {(Array.isArray(font.tags) ? (font.tags as string[]).join(', ') : '')}
-                </p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {Array.isArray(font.tags) && font.tags.length > 0 ? (
+                    (font.tags as string[]).map((tag) => (
+                      <Link 
+                        key={tag} 
+                        href={`/fonts?tag=${encodeURIComponent(tag)}`}
+                        className="inline-block px-4 py-2 bg-gray-100 hover:bg-brand-orange hover:text-white text-gray-600 rounded-full text-sm transition-colors duration-200"
+                      >
+                        {tag}
+                      </Link>
+                    ))
+                  ) : (
+                    <span className="text-gray-400 font-light">-</span>
+                  )}
+                </div>
             </div>
 
             <div className="mt-12">
