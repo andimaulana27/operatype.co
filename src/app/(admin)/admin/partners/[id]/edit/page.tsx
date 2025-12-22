@@ -1,4 +1,4 @@
-// src/app/(admin)/admin/partners/edit/[id]/page.tsx
+// src/app/(admin)/admin/partners/[id]/edit/page.tsx
 'use client';
 
 import { useState, useEffect, useCallback, useTransition } from 'react';
@@ -30,12 +30,15 @@ export default function EditPartnerPage() {
     const fetchPartner = async () => {
       setIsLoading(true);
       const { data, error } = await getPartnerByIdAction(partnerId);
+      
       if (error || !data) {
         toast.error('Failed to fetch partner data.');
         router.push('/admin/partners');
       } else {
-        setPartner(data);
-        setPreview(data.logo_url);
+        // PERBAIKAN: Casting 'data' ke tipe 'Partner' agar TypeScript tidak mendeteksinya sebagai 'never'
+        const partnerData = data as Partner;
+        setPartner(partnerData);
+        setPreview(partnerData.logo_url);
       }
       setIsLoading(false);
     };
