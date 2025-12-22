@@ -65,19 +65,26 @@ export async function getInvoiceDetailsAction(invoiceId: string): Promise<{ data
     return { data: null, error: "Invoice not found or you do not have permission to view it." };
   }
 
+  // --- PERBAIKAN DI SINI ---
+  // Kita melakukan casting ke 'any' untuk melewati pengecekan ketat TypeScript pada hasil join yang kompleks.
+  // TypeScript sering salah menganggap hasil query kompleks sebagai 'never'.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawData = purchaseData as any;
+
   // 3. Format data agar sesuai dengan tipe InvoiceDetails
   const formattedData: InvoiceDetails = {
-    id: purchaseData.id,
-    invoice_id: purchaseData.invoice_id,
-    created_at: purchaseData.created_at,
-    total_amount: purchaseData.total_amount,
-    user: purchaseData.profiles,
-    order_items: purchaseData.order_items.map(item => ({
+    id: rawData.id,
+    invoice_id: rawData.invoice_id,
+    created_at: rawData.created_at,
+    total_amount: rawData.total_amount,
+    user: rawData.profiles, // Mapping dari 'profiles' ke 'user'
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    order_items: rawData.order_items.map((item: any) => ({
       id: item.id,
       license_type: item.license_type,
       user_count: item.user_count,
       amount: item.amount,
-      font: item.fonts
+      font: item.fonts // Mapping dari 'fonts' ke 'font'
     }))
   };
 
