@@ -6,9 +6,7 @@ const Footer = () => {
   return (
     <footer className="bg-brand-white text-brand-black border-t border-brand-gray-2 py-16">
       <div className="container mx-auto px-6">
-        {/* ==================== PERBAIKAN FINAL JARAK KOLOM ==================== */}
-        {/* Kelas col-span yang salah dihapus. */}
-        {/* Gap sekarang diatur ke nilai yang sama untuk tablet dan desktop (gap-x-8) untuk konsistensi. */}
+       
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-y-12 md:gap-x-8">
         {/* =================================================================== */}
           
