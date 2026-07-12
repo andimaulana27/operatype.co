@@ -9,20 +9,18 @@ import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle, Tag, Settings, 
 import toast from 'react-hot-toast';
 import { supabaseImageLoader } from '@/lib/supabaseImageLoader'; // Impor loader gambar supabase
 // ==================== PERBAIKAN KINERJA ====================
-// 1. Impor action baru yang akan kita gunakan
 import { 
-    getAdminFontsAction, // Action untuk mengambil data font
+    getAdminFontsAction, 
     deleteFontAction, 
     updateFontStatusAction, 
     deleteDiscountAction, 
     updateDiscountAction, 
     createDiscountAction,
-    applyDiscountToFontsAction // Action baru untuk diskon
+    applyDiscountToFontsAction 
 } from '@/app/actions/fontActions'; 
 import AdminPagination from '@/components/admin/AdminPagination';
-import { supabase } from '@/lib/supabaseClient'; // Tetap dibutuhkan untuk beberapa hal
+import { supabase } from '@/lib/supabaseClient'; 
 
-// Tipe data tidak banyak berubah, hanya perlu pastikan sinkron
 type FontRow = Database['public']['Tables']['fonts']['Row'];
 type Category = Database['public']['Tables']['categories']['Row'];
 type Partner = Database['public']['Tables']['partners']['Row'];
@@ -39,8 +37,6 @@ type FontWithDetails = FontRow & {
 
 const ITEMS_PER_PAGE = 25;
 
-// Semua komponen Modal (Delete, DiscountForm, dll) tidak perlu diubah.
-// ... (Kode komponen Modal tetap sama seperti sebelumnya)
 const DeleteConfirmationModal = ({ 
     isOpen, 
     onClose, 
@@ -87,6 +83,7 @@ const DeleteConfirmationModal = ({
     );
 };
 
+// ==================== PERBAIKAN FORM DISKON ====================
 const DiscountFormModal = ({ 
     isOpen, 
     onClose, 
@@ -102,8 +99,6 @@ const DiscountFormModal = ({
 }) => {
     const [name, setName] = useState('');
     const [percentage, setPercentage] = useState<number | ''>('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
     const [isActive, setIsActive] = useState(true);
 
     const isEditMode = !!initialData;
@@ -112,15 +107,10 @@ const DiscountFormModal = ({
         if (isOpen && initialData) {
             setName(initialData.name || '');
             setPercentage(initialData.percentage || '');
-            setStartDate(initialData.start_date ? new Date(initialData.start_date).toISOString().split('T')[0] : '');
-            setEndDate(initialData.end_date ? new Date(initialData.end_date).toISOString().split('T')[0] : '');
             setIsActive(initialData.is_active ?? true);
         } else if (isOpen && !initialData) {
-            // Reset form untuk mode Create
             setName('');
             setPercentage('');
-            setStartDate('');
-            setEndDate('');
             setIsActive(true);
         }
     }, [isOpen, initialData]);
@@ -129,7 +119,7 @@ const DiscountFormModal = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name || percentage === '' || !startDate || !endDate) {
+        if (!name || percentage === '') {
             toast.error('Please fill all required fields.');
             return;
         }
@@ -138,7 +128,15 @@ const DiscountFormModal = ({
             return;
         }
         
-        const saveData = { name, percentage, start_date: startDate, end_date: endDate, is_active: isActive };
+        // Sengaja mengirim start_date dan end_date sebagai null 
+        // untuk membersihkan data lama dari database jika ada.
+        const saveData = { 
+            name, 
+            percentage, 
+            start_date: null, 
+            end_date: null, 
+            is_active: isActive 
+        };
         onSave(saveData, initialData?.id);
     };
 
@@ -155,17 +153,7 @@ const DiscountFormModal = ({
                         <label htmlFor="percentage" className="block text-sm font-medium text-gray-700">Percentage (%)</label>
                         <input type="number" id="percentage" value={percentage} onChange={e => setPercentage(Number(e.target.value))} min="1" max="100" className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">Start Date</label>
-                            <input type="date" id="start_date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required />
-                        </div>
-                        <div>
-                            <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">End Date</label>
-                            <input type="date" id="end_date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required />
-                        </div>
-                    </div>
-                     <div className="flex items-center">
+                     <div className="flex items-center mt-2">
                         <input id="is_active" name="is_active" type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
                         <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">Activate this discount</label>
                     </div>
@@ -178,6 +166,7 @@ const DiscountFormModal = ({
         </div>
     );
 };
+// ===============================================================
 
 const ApplyDiscountModal = ({ isOpen, onClose, onApply, discounts, isLoading, selectedFontCount }: { isOpen: boolean, onClose: () => void, onApply: (id: string | null) => void, discounts: Discount[], isLoading: boolean, selectedFontCount: number }) => {
     const [selectedDiscountId, setSelectedDiscountId] = useState<string | null>(null);
@@ -308,21 +297,18 @@ const ManageDiscountsModal = ({
   );
 };
 export default function ManageFontsPage() {
-    // 2. State management disederhanakan
     const [paginatedFonts, setPaginatedFonts] = useState<FontWithDetails[]>([]);
     const [totalFonts, setTotalFonts] = useState(0);
     const [categories, setCategories] = useState<Category[]>([]);
     const [partners, setPartners] = useState<Partner[]>([]);
-    const [isLoading, setIsLoading] = useState(true); // Hanya untuk loading awal
+    const [isLoading, setIsLoading] = useState(true); 
     const [isPending, startTransition] = useTransition();
 
-    // State untuk filter tetap sama
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedPartner, setSelectedPartner] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     
-    // State untuk modal dan seleksi tetap sama
     const [selectedFonts, setSelectedFonts] = useState<string[]>([]);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [fontsToDelete, setFontsToDelete] = useState<FontWithDetails[]>([]);
@@ -335,7 +321,6 @@ export default function ManageFontsPage() {
     const [isDiscountFormOpen, setIsDiscountFormOpen] = useState(false);
     const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null);
 
-    // 3. useEffect utama untuk mengambil data menggunakan Server Action
     useEffect(() => {
         const fetchData = () => {
             startTransition(async () => {
@@ -355,13 +340,12 @@ export default function ManageFontsPage() {
                     setPaginatedFonts(result.data as FontWithDetails[]);
                     setTotalFonts(result.count || 0);
                 }
-                setIsLoading(false); // Matikan loading awal setelah fetch pertama
+                setIsLoading(false); 
             });
         };
         fetchData();
     }, [currentPage, searchTerm, selectedCategory, selectedPartner]);
 
-    // 4. useEffect untuk mengambil data filter (kategori & partner) sekali saja
     useEffect(() => {
         const fetchFilters = async () => {
             const [categoriesResult, partnersResult, allDiscountsResult] = await Promise.all([
@@ -399,9 +383,6 @@ export default function ManageFontsPage() {
     }
 
     const totalPages = Math.ceil(totalFonts / ITEMS_PER_PAGE);
-
-    // Semua fungsi handle (delete, update, dll) sekarang memanggil `refreshData` setelah selesai
-    // agar data di halaman menjadi yang terbaru.
     
     const confirmDelete = () => {
         startTransition(async () => {
@@ -421,7 +402,7 @@ export default function ManageFontsPage() {
             setIsDeleteModalOpen(false);
             setFontsToDelete([]);
             setSelectedFonts([]);
-            refreshData(); // Refresh data
+            refreshData(); 
         });
     };
     
@@ -439,7 +420,7 @@ export default function ManageFontsPage() {
             }
             setIsApplyDiscountModalOpen(false);
             setSelectedFonts([]);
-            refreshData(); // Refresh data
+            refreshData(); 
         });
     };
 
@@ -451,7 +432,7 @@ export default function ManageFontsPage() {
             } else {
                 toast.success(result.success!);
             }
-            refreshData(); // Refresh data
+            refreshData(); 
         });
     };
 
@@ -465,7 +446,6 @@ export default function ManageFontsPage() {
             else { toast.success(result.success!); }
 
             setIsDiscountFormOpen(false);
-            // Refresh diskon setelah menyimpan
             const { data: newDiscounts } = await supabase.from('discounts').select('*').order('created_at', { ascending: false });
             if(newDiscounts) {
                 setAllDiscounts(newDiscounts);
@@ -480,7 +460,6 @@ export default function ManageFontsPage() {
         if (result.error) { toast.error(result.error); } 
         else {
           toast.success(result.success!);
-          // Refresh diskon setelah menghapus
           const { data: newDiscounts } = await supabase.from('discounts').select('*').order('created_at', { ascending: false });
           if(newDiscounts) {
               setAllDiscounts(newDiscounts);
@@ -518,7 +497,6 @@ export default function ManageFontsPage() {
         setIsDiscountFormOpen(true);
     };
     
-    // Fungsi seleksi tidak berubah
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) setSelectedFonts(paginatedFonts.map(f => f.id));
         else setSelectedFonts([]);
@@ -535,7 +513,6 @@ export default function ManageFontsPage() {
 
     return (
         <div>
-            {/* ... (Semua komponen Modal tetap sama) ... */}
             <DiscountFormModal isOpen={isDiscountFormOpen} onClose={() => setIsDiscountFormOpen(false)} onSave={handleSaveDiscount} isLoading={isPending} initialData={editingDiscount} />
             <ApplyDiscountModal isOpen={isApplyDiscountModalOpen} onClose={() => setIsApplyDiscountModalOpen(false)} onApply={handleApplyDiscount} discounts={activeDiscounts} isLoading={isPending} selectedFontCount={selectedFonts.length} />
             <ManageDiscountsModal isOpen={isManageDiscountsModalOpen} onClose={() => setIsManageDiscountsModalOpen(false)} discounts={allDiscounts} onOpenConfirm={openDiscountDeleteModal} onOpenEdit={handleOpenEditDiscount} isLoading={isPending} />
@@ -621,12 +598,14 @@ export default function ManageFontsPage() {
                                             />
                                             <div>
                                                 <Link href={`/admin/fonts/edit/${font.id}`} className="font-medium text-gray-900 hover:text-brand-orange">{font.name}</Link>
+                                                {/* ==================== PERBAIKAN TAMPILAN DISKON DI TABEL ==================== */}
                                                 {discountInfo && (
                                                     <div className="text-xs text-green-600 font-bold mt-1">
                                                         <div className="flex items-center gap-1"><Tag className="w-3 h-3"/>{discountInfo.name} ({discountInfo.percentage}%)</div>
-                                                        <div className="font-normal text-gray-500">{formatDate(discountInfo.start_date)} - {formatDate(discountInfo.end_date)}</div>
+                                                        {/* Tanggal dihapus dari tampilan sini */}
                                                     </div>
                                                 )}
+                                                {/* ============================================================================ */}
                                             </div>
                                         </div>
                                     </td>
