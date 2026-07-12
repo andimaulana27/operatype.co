@@ -1,8 +1,14 @@
 // src/app/(main)/fonts/[slug]/page.tsx
-export const revalidate = 3600;
+
+// ==================== PERBAIKAN VERCEL CACHE ====================
+// Menghapus export const revalidate = 3600; 
+// Menggantinya dengan force-dynamic agar data (khususnya diskon) 
+// selalu fresh dari database setiap kali user memuat halaman.
+export const dynamic = 'force-dynamic';
+// ================================================================
 
 import { Metadata } from 'next';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import { supabase } from "@/lib/supabaseClient";
 import { notFound } from "next/navigation";
 import Link from 'next/link';
@@ -15,8 +21,8 @@ import { Database } from "@/lib/database.types";
 import DynamicFontLoader from "@/components/DynamicFontLoader";
 import { FontWithDetailsForCard } from "@/components/ProductCard";
 
-const TypeTester = dynamic(() => import('@/components/TypeTester'), { ssr: false });
-const GlyphViewer = dynamic(() => import('@/components/GlyphViewer'), { ssr: false });
+const TypeTester = dynamicImport(() => import('@/components/TypeTester'), { ssr: false });
+const GlyphViewer = dynamicImport(() => import('@/components/GlyphViewer'), { ssr: false });
 
 type Discount = Database['public']['Tables']['discounts']['Row'];
 type FontDetail = Database['public']['Tables']['fonts']['Row'] & {
