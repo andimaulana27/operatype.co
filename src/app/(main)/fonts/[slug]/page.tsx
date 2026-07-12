@@ -128,15 +128,13 @@ export default async function FontDetailPage({
   const dynamicFontFamilyRegular = `dynamic-${font.slug}-Regular`;
   const dynamicFontFamilyItalic = `dynamic-${font.slug}-Italic`;
 
-  const now = new Date();
+  // ==================== PERBAIKAN DISKON ====================
+  // Mencari diskon yang aktif tanpa memvalidasi start_date dan end_date
+  // agar admin dapat mengontrol diskon secara realtime hanya dengan is_active
   const activeDiscount = font.font_discounts
       .map(fd => fd.discounts)
-      .find(d => 
-          d && d.is_active && 
-          d.start_date && d.end_date &&
-          new Date(d.start_date) <= now && 
-          new Date(d.end_date) >= now
-      );
+      .find(d => d && d.is_active);
+  // ==========================================================
 
   const getFontMimeType = (url: string | null) => {
     if (!url) return '';
