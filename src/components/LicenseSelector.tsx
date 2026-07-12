@@ -16,15 +16,6 @@ type LicenseSelectorProps = {
 
 type LicenseType = 'Desktop' | 'Standard Commercial' | 'Extended Commercial' | 'Corporate';
 
-const formatDate = (dateString: string | null) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-    });
-};
-
 // --- 1. Teks diubah ke Bahasa Inggris ---
 const licenseDetails = {
     'Desktop': {
@@ -124,7 +115,6 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
   const handleAddToCart = () => {
     const basePriceForLicenseType = getBasePrice(selectedLicense);
     const finalUsers = selectedLicense === 'Desktop' ? userCount : (licenseDetails[selectedLicense].features.find(f => f.includes('User'))?.split(' ')[1] || 1);
-
 
     const itemToAdd: Omit<CartItem, 'id'> = {
       fontId: font.id,
@@ -235,9 +225,7 @@ const LicenseSelector = ({ font, activeDiscount }: LicenseSelectorProps) => {
                 <p className="text-sm font-medium">
                     <span className="font-bold">{activeDiscount.name}</span> is active! Enjoy <span className="font-bold">{activeDiscount.percentage}% off</span> all licenses.
                 </p>
-                <p className="text-xs text-green-700 mt-1">
-                    Valid from {formatDate(activeDiscount.start_date)} to {formatDate(activeDiscount.end_date)}.
-                </p>
+                {/* Tanggal start dan end telah dihapus agar UI lebih bersih dan realtime */}
             </div>
           </div>
       )}
