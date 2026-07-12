@@ -8,11 +8,13 @@ import Link from 'next/link';
 import CountdownTimer from '@/components/CountdownTimer';
 import { Tag } from 'lucide-react';
 import PayPalWrapper from '@/components/PayPalButtons';
+import { supabaseImageLoader } from '@/lib/supabaseImageLoader'; // Impor loader gambar Supabase
 
 export default function CartPage() {
   const { cartItems, removeFromCart, cartTotal } = useCart();
   const { user, profile, loading } = useAuth();
 
+  // Memastikan kalkulasi harga asli dan harga diskon berjalan dengan baik
   const originalTotal = cartItems.reduce((total, item) => total + (item.originalPrice || item.price), 0);
   const totalSavings = originalTotal - cartTotal;
   
@@ -58,7 +60,14 @@ export default function CartPage() {
               cartItems.map(item => (
                 <div key={item.id} className="flex items-center gap-4 border-b border-brand-gray-2 pb-4">
                   <div className="w-20 h-20 bg-brand-gray-2 rounded-md overflow-hidden relative">
-                    <Image src={item.imageUrl || '/placeholder.png'} alt={item.name} fill style={{ objectFit: 'cover' }} />
+                    <Image 
+                      loader={item.imageUrl ? supabaseImageLoader : undefined}
+                      unoptimized={!item.imageUrl}
+                      src={item.imageUrl || '/placeholder.png'} 
+                      alt={item.name} 
+                      fill 
+                      style={{ objectFit: 'cover' }} 
+                    />
                   </div>
                   <div className="flex-grow">
                     <h4 className="font-medium">{item.name}</h4>
@@ -119,9 +128,7 @@ export default function CartPage() {
           <div>
             <h3 className="text-lg font-medium mb-4">Payment Method</h3>
             
-            {/* ==================== PERBAIKAN UTAMA DI SINI ==================== */}
             {loading ? (
-              // 1. Tampilkan tombol loading saat data user sedang diperiksa
               <button
                 disabled
                 className="w-full bg-gray-300 text-gray-500 font-medium py-4 rounded-full cursor-not-allowed animate-pulse"
@@ -129,10 +136,8 @@ export default function CartPage() {
                 Loading User...
               </button>
             ) : user ? (
-              // 2. Jika user sudah login, tampilkan tombol PayPal
               <PayPalWrapper />
             ) : (
-              // 3. Jika user belum login, tampilkan tombol yang mengarah ke halaman login
               <Link href="/login?next=/cart" className="w-full block">
                 <button
                   className="w-full bg-brand-orange text-white font-medium py-4 rounded-full hover:bg-brand-orange-hover transition-colors"
@@ -141,7 +146,6 @@ export default function CartPage() {
                 </button>
               </Link>
             )}
-            {/* =================================================================== */}
             
             <p className="text-xs text-brand-gray-1 mt-4 text-center">
               Your receipt and download links will be sent to your dashboard profile after purchase.
