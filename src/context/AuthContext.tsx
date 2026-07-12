@@ -70,7 +70,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     getSessionAndProfile();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      // ✅ PERBAIKAN: Pastikan underscore tetap ada
       (event, _newSession) => {
         if (event === 'PASSWORD_RECOVERY') {
           return;
@@ -88,12 +87,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   const handleLogout = async () => {
     toast.loading('Logging out...');
+    
+    // Proses logout ke backend Supabase
     const { error } = await supabase.auth.signOut();
     toast.dismiss();
 
     if (error) {
-      toast.error(`Logout failed: ${error.message}`);
+      // PERBAIKAN: Tangani error "Auth session missing" secara manual.
+      // Jika session memang sudah hilang di server (403), kita tetap anggap berhasil logout di client.
+      if (error.message.includes('Auth session missing') || error.message.includes('session_not_found') || error.status === 403) {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        toast.success('You have been logged out.');
+        router.push('/');
+      } else {
+        toast.error(`Logout failed: ${error.message}`);
+      }
     } else {
+      setSession(null);
+      setUser(null);
+      setProfile(null);
       toast.success('You have been logged out.');
       router.push('/');
     }
