@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { Database } from '@/lib/database.types';
 import { PlusCircle, Search, Trash2, ChevronDown, AlertTriangle, Tag, Settings, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { supabaseImageLoader } from '@/lib/supabaseImageLoader'; // Impor loader gambar supabase
 // ==================== PERBAIKAN KINERJA ====================
 // 1. Impor action baru yang akan kita gunakan
 import { 
@@ -609,7 +610,15 @@ export default function ManageFontsPage() {
                                     <td className="p-4"><input type="checkbox" checked={selectedFonts.includes(font.id)} onChange={(e) => handleSelectOne(font.id, e.target.checked)} /></td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-4">
-                                            <Image className="h-16 w-16 rounded-md object-cover" src={font.main_image_url || '/placeholder.png'} alt={font.name || 'Font image'} width={64} height={64} />
+                                            <Image 
+                                                loader={font.main_image_url ? supabaseImageLoader : undefined}
+                                                unoptimized={!font.main_image_url}
+                                                className="h-16 w-16 rounded-md object-cover" 
+                                                src={font.main_image_url || '/placeholder.png'} 
+                                                alt={font.name || 'Font image'} 
+                                                width={64} 
+                                                height={64} 
+                                            />
                                             <div>
                                                 <Link href={`/admin/fonts/edit/${font.id}`} className="font-medium text-gray-900 hover:text-brand-orange">{font.name}</Link>
                                                 {discountInfo && (
