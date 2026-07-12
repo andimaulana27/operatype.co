@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import { deletePartnerAction } from '@/app/actions/partnerActions';
 import AdminPagination from '@/components/admin/AdminPagination';
 import DeleteConfirmationModal from '@/components/admin/DeleteConfirmationModal';
+import { supabaseImageLoader } from '@/lib/supabaseImageLoader'; // Impor loader gambar
 
 type Partner = Database['public']['Tables']['partners']['Row'];
 
@@ -117,6 +118,8 @@ export default function PartnerListClient({ initialPartners, totalPages, current
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-4">
                                         <Image
+                                            loader={partner.logo_url ? supabaseImageLoader : undefined}
+                                            unoptimized={!partner.logo_url}
                                             className="h-12 w-12 rounded-full object-cover bg-gray-100"
                                             src={partner.logo_url || '/placeholder-logo.png'}
                                             alt={partner.name}
