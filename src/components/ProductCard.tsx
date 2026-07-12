@@ -21,11 +21,10 @@ type ProductCardProps = {
 // Loader khusus untuk mentransformasi gambar menggunakan server Supabase
 const supabaseImageLoader = ({ src, width, quality }: ImageLoaderProps): string => {
   if (!src.includes('supabase.co')) return src; // Kembalikan src asli jika bukan dari Supabase
-  
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || src.split('/storage')[0];
+  
   let imagePath = src;
   const storagePath = '/storage/v1/object/public/';
-  
   if (src.includes(storagePath)) {
     imagePath = src.split(storagePath)[1];
   } else {
@@ -44,20 +43,12 @@ const getActiveDiscount = (fontDiscounts: FontWithDetailsForCard['font_discounts
     if (!fontDiscounts || fontDiscounts.length === 0) {
         return null;
     }
-
-    const now = new Date();
+    
+    // PERBAIKAN: Hanya mengecek apakah diskon aktif (is_active), 
+    // menghapus pengecekan start_date dan end_date agar realtime.
     const activeDiscountRelation = fontDiscounts.find(fd => {
         const discount = fd.discounts;
-        if (discount && discount.is_active) {
-            const startDate = discount.start_date ? new Date(discount.start_date) : null;
-            const endDate = discount.end_date ? new Date(discount.end_date) : null;
-            
-            const isStarted = !startDate || now >= startDate;
-            const isNotExpired = !endDate || now <= endDate;
-            
-            return isStarted && isNotExpired;
-        }
-        return false;
+        return discount && discount.is_active;
     });
 
     return activeDiscountRelation ? activeDiscountRelation.discounts : null;
@@ -72,8 +63,8 @@ const ProductCard = ({ font, priority = false }: ProductCardProps) => {
 
   const activeDiscount = getActiveDiscount(font.font_discounts);
   const originalPrice = font.price_desktop || 0;
+  
   let displayPrice = originalPrice;
-
   if (activeDiscount && activeDiscount.percentage) {
     displayPrice = originalPrice - (originalPrice * activeDiscount.percentage / 100);
   }
@@ -104,6 +95,7 @@ const ProductCard = ({ font, priority = false }: ProductCardProps) => {
           </span>
         )}
       </div>
+
       <h3 className="text-xl font-medium text-brand-black">{font.name || 'Untitled Font'}</h3>
       <p className="text-brand-gray-1 font-light mt-1 h-12 overflow-hidden text-ellipsis">
         {truncateDescription(font.description)}
