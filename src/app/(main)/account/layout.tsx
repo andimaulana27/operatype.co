@@ -1,4 +1,10 @@
 // src/app/(main)/account/layout.tsx
+// ==================== PERBAIKAN BUILD VERCEL ====================
+// Memaksa Next.js untuk merender halaman ini secara dinamis pada setiap request,
+// mencegah error "Dynamic server usage" saat proses build di Vercel.
+export const dynamic = 'force-dynamic';
+// ================================================================
+
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
